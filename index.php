@@ -30,7 +30,7 @@ if (isset($_GET['error'])) {
     <link href="assets/bootstrap/css/bootstrap.min.css" rel="stylesheet">
 
     <!-- Custom CSS -->
-    <link href="assets/css/style.css" rel="stylesheet">
+    <link href="assets/bootstrap/css/style.css" rel="stylesheet">
 </head>
 <body class="bg-light">
 

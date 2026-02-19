@@ -85,12 +85,22 @@ if($tab == 'dashboard') {
     <!-- MAIN CONTENT -->
     <main class="main-content" id="mainContent">
         <nav class="top-navbar d-flex justify-content-between align-items-center">
-            <div>
-                <button class="menu-toggle" id="menuToggle"><i class="fas fa-bars"></i></button>
-                <span class="ms-3 fw-bold" style="color: var(--primary-dark);"><?= ucfirst($tab) ?></span>
-            </div>
-            <span class="user-badge"><i class="fas fa-user-circle me-2"></i><?= htmlspecialchars($_SESSION['fullname']) ?></span>
-        </nav>
+    <!-- Left Side: Menu & Title -->
+    <div class="d-flex align-items-center">
+        <button class="menu-toggle-btn" id="menuToggle">
+            <i class="fas fa-bars"></i>
+        </button>
+        <span class="page-title"><?= ucfirst($tab) ?></span>
+    </div>
+
+    <!-- Right Side: User Profile -->
+    <div class="user-profile-pill">
+        <div class="user-avatar">
+            <i class="fas fa-user-circle"></i>
+        </div>
+        <span class="user-name"><?= htmlspecialchars($_SESSION['fullname']) ?></span>
+    </div>
+</nav>
 
         <div class="content-area">
             <?php if($tab=='dashboard'): ?>

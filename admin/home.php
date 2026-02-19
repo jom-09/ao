@@ -55,8 +55,15 @@ if($tab == 'dashboard') {
     <meta charset="UTF-8">
     <title>Admin Dashboard - Barangay System</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="../assets/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="../assets/bootstrap/css/datatables.min.css">
+    
+    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <!-- Custom Style -->
     <link href="../assets/bootstrap/css/style.css" rel="stylesheet">
 </head>
 <body>
@@ -65,52 +72,62 @@ if($tab == 'dashboard') {
     <!-- SIDEBAR -->
     <div class="sidebar" id="sidebar">
         <div class="sidebar-header">
-            <h4><i class="fas fa-building me-2"></i>Barangay System</h4>
+            <h4>
+                <i class="fas fa-building me-2"></i>
+                <span>Barangay System</span>
+            </h4>
         </div>
 
         <ul class="nav flex-column">
             <li class="nav-item">
                 <a href="home.php" class="nav-link <?php echo ($tab=='dashboard')?'active':''; ?>">
-                    <i class="fas fa-chart-pie"></i> Dashboard
+                    <i class="fas fa-chart-pie"></i>
+                    <span>Dashboard</span>
                 </a>
             </li>
             <li class="nav-item">
                 <a href="home.php?tab=requests" class="nav-link <?php echo ($tab=='requests')?'active':''; ?>">
-                    <i class="fas fa-clipboard-list"></i> Requests
+                    <i class="fas fa-clipboard-list"></i>
+                    <span>Requests</span>
                 </a>
             </li>
             <li class="nav-item">
                 <a href="home.php?tab=history" class="nav-link <?php echo ($tab=='history')?'active':''; ?>">
-                    <i class="fas fa-history"></i> Transaction History
+                    <i class="fas fa-history"></i>
+                    <span>Transaction History</span>
                 </a>
             </li>
             <li class="nav-item">
                 <a href="home.php?tab=import" class="nav-link <?php echo ($tab=='import')?'active':''; ?>">
-                    <i class="fas fa-file-import"></i> Import Data
+                    <i class="fas fa-file-import"></i>
+                    <span>Import Data</span>
                 </a>
             </li>
             <li class="nav-item">
                 <a href="home.php?tab=find" class="nav-link <?php echo ($tab=='find')?'active':''; ?>">
-                    <i class="fas fa-search"></i> Find Record
+                    <i class="fas fa-search"></i>
+                    <span>Find Record</span>
                 </a>
             </li>
             <li class="nav-item">
                 <a href="home.php?tab=faas" class="nav-link <?php echo ($tab=='faas')?'active':''; ?>">
-                    <i class="fas fa-folder-tree"></i> FAAS Management
+                    <i class="fas fa-folder-tree"></i>
+                    <span>FAAS Management</span>
                 </a>
             </li>
             <li class="nav-item">
-    <a href="home.php?tab=certificates" class="nav-link <?php echo ($tab=='certificates')?'active':''; ?>">
-        <i class="fas fa-certificate"></i> Certificates
-    </a>
-</li>
-
+                <a href="home.php?tab=certificates" class="nav-link <?php echo ($tab=='certificates')?'active':''; ?>">
+                    <i class="fas fa-certificate"></i>
+                    <span>Certificates</span>
+                </a>
+            </li>
         </ul>
 
         <div class="mt-auto">
             <hr class="bg-white opacity-25">
-            <a href="../logout.php" class="logout-btn d-block text-center">
-                <i class="fas fa-sign-out-alt me-2"></i> Logout
+            <a href="../logout.php" class="logout-btn">
+                <i class="fas fa-sign-out-alt me-2"></i>
+                <span>Logout</span>
             </a>
         </div>
     </div>
@@ -183,7 +200,7 @@ if($tab == 'dashboard') {
 <?php elseif($tab=='requests'): ?>
 <!-- REQUESTS -->
 <div class="modern-card">
-    <div class="card-header bg-secondary">
+    <div class="card-header">
         <i class="fas fa-clipboard-list me-2"></i> All Requests
     </div>
     <div class="card-body">
@@ -229,7 +246,7 @@ if($tab == 'dashboard') {
                     <td><?php echo htmlspecialchars($row['fullname']); ?></td>
                     <td><?php echo htmlspecialchars($row['purpose']); ?></td>
                     <td><?php echo htmlspecialchars(implode(", ", $certs)); ?></td>
-                    <td>₱<?php echo number_format($row['total_amount'],2); ?></td>
+                    <td><strong>₱<?php echo number_format($row['total_amount'],2); ?></strong></td>
                     <td><?php echo htmlspecialchars($row['control_number']); ?></td>
                     <td>
                         <span class="status-badge <?php echo strtolower($row['status']); ?>">
@@ -294,7 +311,7 @@ if($tab == 'dashboard') {
                     <td><?php echo htmlspecialchars($row['fullname']); ?></td>
                     <td><?php echo htmlspecialchars($row['purpose']); ?></td>
                     <td><?php echo htmlspecialchars(implode(", ", $certs)); ?></td>
-                    <td>₱<?php echo number_format($row['total_amount'],2); ?></td>
+                    <td><strong>₱<?php echo number_format($row['total_amount'],2); ?></strong></td>
                     <td><?php echo htmlspecialchars($row['control_number']); ?></td>
                     <td>
                         <?php
@@ -376,15 +393,20 @@ if (!empty($selected_barangay) && !empty($search_name)) {
 }
 ?>
 
+<!-- Scroll Indicator for Mobile -->
+<div class="scroll-indicator">
+    <i class="fas fa-arrow-left me-2"></i> Swipe to scroll table <i class="fas fa-arrow-right ms-2"></i>
+</div>
+
 <div class="modern-card mb-4">
-    <div class="card-header bg-info text-white">
+    <div class="card-header">
         <i class="fas fa-search me-2"></i> Find Record
     </div>
     <div class="card-body">
         <form method="GET">
             <input type="hidden" name="tab" value="find">
             <div class="row g-3">
-                <div class="col-md-5">
+                <div class="col-md-5 col-sm-12">
                     <label class="modern-form-label">Barangay</label>
                     <select name="barangay" class="modern-form-select" required>
                         <option value="">-- Select Barangay --</option>
@@ -395,13 +417,13 @@ if (!empty($selected_barangay) && !empty($search_name)) {
                         <?php endforeach; ?>
                     </select>
                 </div>
-                <div class="col-md-5">
+                <div class="col-md-5 col-sm-12">
                     <label class="modern-form-label">Search Declared Owner</label>
                     <input type="text" name="search" class="modern-form-control"
                            value="<?php echo htmlspecialchars($search_name); ?>"
                            placeholder="Enter declared owner name" required>
                 </div>
-                <div class="col-md-2 d-flex align-items-end">
+                <div class="col-md-2 col-sm-12 d-flex align-items-end">
                     <button type="submit" class="modern-btn modern-btn-primary w-100">
                         <i class="fas fa-search me-2"></i> Search
                     </button>
@@ -413,56 +435,71 @@ if (!empty($selected_barangay) && !empty($search_name)) {
 
 <?php if(!empty($results)): ?>
 <div class="modern-card">
-    <div class="card-body">
-        <div class="table-responsive">
-            <table class="modern-table">
-                <thead>
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="fas fa-list me-2"></i> Search Results</span>
+        <span class="badge bg-primary" style="font-size: 0.9rem; padding: 8px 15px; border-radius: 30px;">
+            <i class="fas fa-database me-1"></i> Found: <?php echo count($results); ?> record(s)
+        </span>
+    </div>
+    <div class="card-body p-0">
+        <!-- Scrollable Container -->
+        <div class="scrollable-container">
+            <div class="table-responsive">
+                <table class="modern-table find-record-table">
+                    <thead>
+                        <tr>
+                            <th>Declared Owner</th>
+                            <th>Owner Address</th>
+                            <th>Property Location</th>
+                            <th>Title</th>
+                            <th>Lot</th>
+                            <th>ARP No.</th>
+                            <th>PIN No.</th>
+                            <th>Classification</th>
+                            <th>Actual Use</th>
+                            <th>Area</th>
+                            <th>Market Value</th>
+                            <th>Assessed Value</th>
+                            <th>Taxability</th>
+                            <th>Effectivity</th>
+                            <th>Cancellation</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    <?php foreach($results as $row): ?>
                     <tr>
-                        <th>Declared Owner</th>
-                        <th>Owner Address</th>
-                        <th>Property Location</th>
-                        <th>Title</th>
-                        <th>Lot</th>
-                        <th>ARP No.</th>
-                        <th>PIN No.</th>
-                        <th>Classification</th>
-                        <th>Actual Use</th>
-                        <th>Area</th>
-                        <th>Market Value</th>
-                        <th>Assessed Value</th>
-                        <th>Taxability</th>
-                        <th>Effectivity</th>
-                        <th>Cancellation</th>
+                        <td title="<?php echo htmlspecialchars($row['declared_owner']); ?>"><?php echo htmlspecialchars($row['declared_owner']); ?></td>
+                        <td title="<?php echo htmlspecialchars($row['owner_address']); ?>"><?php echo htmlspecialchars($row['owner_address']); ?></td>
+                        <td title="<?php echo htmlspecialchars($row['property_location']); ?>"><?php echo htmlspecialchars($row['property_location']); ?></td>
+                        <td title="<?php echo htmlspecialchars($row['title']); ?>"><?php echo htmlspecialchars($row['title']); ?></td>
+                        <td title="<?php echo htmlspecialchars($row['lot']); ?>"><?php echo htmlspecialchars($row['lot']); ?></td>
+                        <td title="<?php echo htmlspecialchars($row['ARP_No.']); ?>"><?php echo htmlspecialchars($row['ARP_No.']); ?></td>
+                        <td title="<?php echo htmlspecialchars($row['PIN_No.']); ?>"><?php echo htmlspecialchars($row['PIN_No.']); ?></td>
+                        <td title="<?php echo htmlspecialchars($row['classification']); ?>"><?php echo htmlspecialchars($row['classification']); ?></td>
+                        <td title="<?php echo htmlspecialchars($row['actual_use']); ?>"><?php echo htmlspecialchars($row['actual_use']); ?></td>
+                        <td title="<?php echo htmlspecialchars($row['area']); ?>"><?php echo htmlspecialchars($row['area']); ?></td>
+                        <td title="<?php echo htmlspecialchars($row['mv']); ?>"><?php echo htmlspecialchars($row['mv']); ?></td>
+                        <td title="<?php echo htmlspecialchars($row['av']); ?>"><?php echo htmlspecialchars($row['av']); ?></td>
+                        <td title="<?php echo htmlspecialchars($row['taxability']); ?>"><?php echo htmlspecialchars($row['taxability']); ?></td>
+                        <td title="<?php echo htmlspecialchars($row['effectivity']); ?>"><?php echo htmlspecialchars($row['effectivity']); ?></td>
+                        <td title="<?php echo htmlspecialchars($row['cancellation']); ?>"><?php echo htmlspecialchars($row['cancellation']); ?></td>
                     </tr>
-                </thead>
-                <tbody>
-                <?php foreach($results as $row): ?>
-                <tr>
-                    <td><?php echo htmlspecialchars($row['declared_owner']); ?></td>
-                    <td><?php echo htmlspecialchars($row['owner_address']); ?></td>
-                    <td><?php echo htmlspecialchars($row['property_location']); ?></td>
-                    <td><?php echo htmlspecialchars($row['title']); ?></td>
-                    <td><?php echo htmlspecialchars($row['lot']); ?></td>
-                    <td><?php echo htmlspecialchars($row['ARP_No.']); ?></td>
-                    <td><?php echo htmlspecialchars($row['PIN_No.']); ?></td>
-                    <td><?php echo htmlspecialchars($row['classification']); ?></td>
-                    <td><?php echo htmlspecialchars($row['actual_use']); ?></td>
-                    <td><?php echo htmlspecialchars($row['area']); ?></td>
-                    <td><?php echo htmlspecialchars($row['mv']); ?></td>
-                    <td><?php echo htmlspecialchars($row['av']); ?></td>
-                    <td><?php echo htmlspecialchars($row['taxability']); ?></td>
-                    <td><?php echo htmlspecialchars($row['effectivity']); ?></td>
-                    <td><?php echo htmlspecialchars($row['cancellation']); ?></td>
-                </tr>
-                <?php endforeach; ?>
-                </tbody>
-            </table>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <!-- Scroll Hint -->
+        <div class="scroll-hint">
+            <i class="fas fa-arrow-left"></i>
+            <span class="mx-2">Scroll horizontally to see more columns</span>
+            <i class="fas fa-arrow-right"></i>
         </div>
     </div>
 </div>
 <?php elseif(!empty($search_name)): ?>
 <div class="modern-alert modern-alert-warning">
-    <i class="fas fa-exclamation-triangle me-2"></i> No records found.
+    <i class="fas fa-exclamation-triangle me-2"></i> No records found for "<?php echo htmlspecialchars($search_name); ?>" in <?php echo ucwords(str_replace('_',' ',$selected_barangay)); ?>.
 </div>
 <?php endif; ?>
 
@@ -620,7 +657,7 @@ if($action=='edit' && $id){
 ?>
 
 <div class="modern-card mb-4">
-    <div class="card-header" style="background: <?php echo $action=='add' ? '#10b981' : '#f59e0b'; ?>; color: white;">
+    <div class="card-header" style="background: <?php echo $action=='add' ? 'linear-gradient(135deg, #28a745, #20c997)' : 'linear-gradient(135deg, #ffc107, #fd7e14)'; ?>; color: white;">
         <i class="fas fa-<?php echo $action=='add' ? 'plus' : 'edit'; ?>-circle me-2"></i>
         <?php echo $action=='add' ? 'Add New FAAS' : 'Edit FAAS Record'; ?>
     </div>
@@ -655,6 +692,7 @@ if($action=='edit' && $id){
 <?php endif; ?>
 
 <!-- TABLE WITH PAGINATION -->
+<!-- TABLE WITH PAGINATION -->
 <?php
 if($selected_barangay && $action!='add' && $action!='edit'):
 
@@ -675,172 +713,75 @@ $stmt->execute();
 $res = $stmt->get_result();
 ?>
 
-<div class="modern-card">
-    <div class="card-header d-flex justify-content-between align-items-center">
-        <span><i class="fas fa-table me-2"></i> FAAS Records - <?php echo ucwords(str_replace('_',' ',$selected_barangay)); ?></span>
-        <span class="badge bg-primary" style="font-size: 0.9rem; padding: 8px 15px;">
-            <i class="fas fa-database me-1"></i> Total: <?php echo number_format($total_records); ?> records
-        </span>
-    </div>
-    <div class="card-body">
-        <div class="table-responsive">
-            <table class="modern-table">
-                <thead>
-                    <tr>
-                        <?php foreach($labels as $label): ?>
-                        <th><?php echo $label;?></th>
-                        <?php endforeach;?>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                <?php while($row=$res->fetch_assoc()): ?>
-                <tr>
-                    <?php foreach($fields as $field): ?>
-                    <td><?php echo htmlspecialchars($row[$field]);?></td>
-                    <?php endforeach;?>
-                    <td>
-                        <a href="home.php?tab=faas&barangay=<?php echo $selected_barangay;?>&action=edit&id=<?php echo urlencode($row['PIN_No.']);?>&page=<?php echo $page;?>"
-                           class="modern-btn modern-btn-warning modern-btn-sm" title="Edit">
-                            <i class="fas fa-edit"></i>
-                        </a>
-                        <a href="home.php?tab=faas&barangay=<?php echo $selected_barangay;?>&action=delete&id=<?php echo urlencode($row['PIN_No.']);?>&page=<?php echo $page;?>"
-                           class="modern-btn modern-btn-danger modern-btn-sm" title="Delete"
-                           onclick="return confirm('Delete this record?');">
-                            <i class="fas fa-trash"></i>
-                        </a>
-                    </td>
-                </tr>
-                <?php endwhile;?>
-                </tbody>
-            </table>
-        </div>
+<!-- Scroll Indicator for Mobile -->
+<div class="scroll-indicator">
+    <i class="fas fa-arrow-left me-2"></i> Swipe to scroll table <i class="fas fa-arrow-right ms-2"></i>
+</div>
 
-        <!-- IMPROVED PAGINATION WITH SCROLLABLE NUMBERS -->
-        <?php if($total_pages > 1): ?>
-        <div class="d-flex flex-column flex-md-row justify-content-between align-items-center mt-4">
-            <div class="mb-3 mb-md-0">
-                <span class="text-muted">
-                    Showing page <?php echo $page; ?> of <?php echo $total_pages; ?> 
-                    (<?php echo number_format($total_records); ?> total records)
-                </span>
-            </div>
-            
-            <nav aria-label="Page navigation">
-                <ul class="pagination mb-0 flex-wrap" style="gap: 3px;">
-                    <!-- First Page Button -->
-                    <?php if($page > 1): ?>
-                    <li class="page-item">
-                        <a class="page-link" href="home.php?tab=faas&barangay=<?php echo $selected_barangay;?>&page=1" title="First Page">
-                            <i class="fas fa-angle-double-left"></i>
-                        </a>
-                    </li>
-                    <?php endif; ?>
-                    
-                    <!-- Previous Button -->
-                    <?php if($page > 1): ?>
-                    <li class="page-item">
-                        <a class="page-link" href="home.php?tab=faas&barangay=<?php echo $selected_barangay;?>&page=<?php echo $page-1;?>" title="Previous">
-                            <i class="fas fa-chevron-left"></i>
-                        </a>
-                    </li>
-                    <?php endif; ?>
-                    
-                    <!-- Page Numbers with Smart Display -->
-                    <?php
-                    // Calculate page range to display
-                    $start_page = max(1, min($page - 4, $total_pages - 9));
-                    $end_page = min($total_pages, max($page + 5, 10));
-                    
-                    // Adjust if near the beginning
-                    if($start_page <= 1) {
-                        $start_page = 1;
-                        $end_page = min($total_pages, 10);
-                    }
-                    
-                    // Adjust if near the end
-                    if($end_page >= $total_pages) {
-                        $end_page = $total_pages;
-                        $start_page = max(1, $total_pages - 9);
-                    }
-                    
-                    // Show first page if not in range
-                    if($start_page > 1) {
-                        echo '<li class="page-item"><a class="page-link" href="home.php?tab=faas&barangay=' . $selected_barangay . '&page=1">1</a></li>';
-                        if($start_page > 2) {
-                            echo '<li class="page-item disabled"><span class="page-link">...</span></li>';
-                        }
-                    }
-                    
-                    // Display page numbers
-                    for($i = $start_page; $i <= $end_page; $i++): 
-                    ?>
-                        <li class="page-item <?php echo ($i == $page) ? 'active' : ''; ?>">
-                            <a class="page-link" href="home.php?tab=faas&barangay=<?php echo $selected_barangay;?>&page=<?php echo $i; ?>">
-                                <?php echo $i; ?>
-                            </a>
-                        </li>
-                    <?php endfor; ?>
-                    
-                    <!-- Show last page if not in range -->
-                    <?php if($end_page < $total_pages): ?>
-                        <?php if($end_page < $total_pages - 1): ?>
-                            <li class="page-item disabled"><span class="page-link">...</span></li>
-                        <?php endif; ?>
-                        <li class="page-item">
-                            <a class="page-link" href="home.php?tab=faas&barangay=<?php echo $selected_barangay;?>&page=<?php echo $total_pages; ?>">
-                                <?php echo $total_pages; ?>
-                            </a>
-                        </li>
-                    <?php endif; ?>
-                    
-                    <!-- Next Button -->
-                    <?php if($page < $total_pages): ?>
-                    <li class="page-item">
-                        <a class="page-link" href="home.php?tab=faas&barangay=<?php echo $selected_barangay;?>&page=<?php echo $page+1;?>" title="Next">
-                            <i class="fas fa-chevron-right"></i>
-                        </a>
-                    </li>
-                    <?php endif; ?>
-                    
-                    <!-- Last Page Button -->
-                    <?php if($page < $total_pages): ?>
-                    <li class="page-item">
-                        <a class="page-link" href="home.php?tab=faas&barangay=<?php echo $selected_barangay;?>&page=<?php echo $total_pages; ?>" title="Last Page">
-                            <i class="fas fa-angle-double-right"></i>
-                        </a>
-                    </li>
-                    <?php endif; ?>
-                </ul>
-            </nav>
-            
-            <!-- Page Jump Dropdown (for quick navigation) -->
-            <div class="ms-3 d-none d-lg-block">
-                <select class="form-select form-select-sm" style="width: auto; border-radius: 10px;" onchange="window.location.href='home.php?tab=faas&barangay=<?php echo $selected_barangay;?>&page=' + this.value">
-                    <option value="">Jump to page</option>
-                    <?php for($i = 1; $i <= $total_pages; $i++): ?>
-                    <option value="<?php echo $i; ?>" <?php echo ($i == $page) ? 'selected' : ''; ?>>
-                        Page <?php echo $i; ?>
-                    </option>
-                    <?php endfor; ?>
-                </select>
-            </div>
+<div class="modern-card">
+    <div class="card-header d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
+        <span class="mb-2 mb-md-0"><i class="fas fa-table me-2"></i> FAAS Records - <?php echo ucwords(str_replace('_',' ',$selected_barangay)); ?></span>
+        <div class="d-flex flex-wrap gap-2">
+            <span class="badge bg-primary" style="font-size: 0.9rem; padding: 8px 15px; border-radius: 30px;">
+                <i class="fas fa-database me-1"></i> Total: <?php echo number_format($total_records); ?> records
+            </span>
+            <a href="home.php?tab=faas&barangay=<?php echo $selected_barangay;?>&action=add" class="modern-btn modern-btn-success modern-btn-sm">
+                <i class="fas fa-plus-circle me-1"></i> Add New
+            </a>
         </div>
-        
-        <!-- Mobile Quick Jump (visible only on mobile) -->
-        <div class="d-block d-lg-none mt-3">
-            <select class="form-select form-select-sm w-100" style="border-radius: 10px;" onchange="window.location.href='home.php?tab=faas&barangay=<?php echo $selected_barangay;?>&page=' + this.value">
-                <option value="">Jump to page</option>
-                <?php for($i = 1; $i <= $total_pages; $i++): ?>
-                <option value="<?php echo $i; ?>" <?php echo ($i == $page) ? 'selected' : ''; ?>>
-                    Page <?php echo $i; ?> of <?php echo $total_pages; ?>
-                </option>
-                <?php endfor; ?>
-            </select>
-        </div>
-        <?php endif; ?>
-        
     </div>
+    <div class="card-body p-0">
+        <!-- Scrollable Container -->
+        <div class="scrollable-container">
+            <div class="table-responsive">
+                <table class="modern-table faas-table">
+                    <thead>
+                        <tr>
+                            <?php foreach($labels as $label): ?>
+                            <th><?php echo $label;?></th>
+                            <?php endforeach;?>
+                            <th class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    <?php while($row=$res->fetch_assoc()): ?>
+                    <tr>
+                        <?php foreach($fields as $field): ?>
+                        <td title="<?php echo htmlspecialchars($row[$field]); ?>"><?php echo htmlspecialchars($row[$field]);?></td>
+                        <?php endforeach;?>
+                        <td>
+                            <div class="action-buttons">
+                                <a href="home.php?tab=faas&barangay=<?php echo $selected_barangay;?>&action=edit&id=<?php echo urlencode($row['PIN_No.']);?>&page=<?php echo $page;?>"
+                                   class="modern-btn modern-btn-warning modern-btn-sm" title="Edit">
+                                    <i class="fas fa-edit"></i> <span class="d-none d-md-inline ms-1">Edit</span>
+                                </a>
+                                <a href="home.php?tab=faas&barangay=<?php echo $selected_barangay;?>&action=delete&id=<?php echo urlencode($row['PIN_No.']);?>&page=<?php echo $page;?>"
+                                   class="modern-btn modern-btn-danger modern-btn-sm" title="Delete"
+                                   onclick="return confirm('Delete this record?');">
+                                    <i class="fas fa-trash"></i> <span class="d-none d-md-inline ms-1">Delete</span>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    <?php endwhile;?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <!-- Scroll Hint -->
+        <div class="scroll-hint">
+            <i class="fas fa-arrow-left"></i>
+            <span class="mx-2">Scroll horizontally to see all columns</span>
+            <i class="fas fa-arrow-right"></i>
+        </div>
+    </div>
+    
+    <!-- Rest of your pagination code remains the same -->
+    <?php if($total_pages > 1): ?>
+    <div class="card-footer bg-transparent">
+        <!-- Your existing pagination code here -->
+    </div>
+    <?php endif; ?>
 </div>
 
 <?php
@@ -929,7 +870,7 @@ $certificates = $stmt->get_result();
 <!-- ADD/EDIT CERTIFICATE FORM -->
 <?php if($action=='add' || ($action=='edit' && $id)): ?>
 <div class="modern-card mb-4">
-    <div class="card-header" style="background: <?php echo $action=='add' ? '#10b981' : '#f59e0b'; ?>; color: white;">
+    <div class="card-header" style="background: <?php echo $action=='add' ? 'linear-gradient(135deg, #28a745, #20c997)' : 'linear-gradient(135deg, #ffc107, #fd7e14)'; ?>; color: white;">
         <i class="fas fa-<?php echo $action=='add' ? 'plus' : 'edit'; ?>-circle me-2"></i>
         <?php echo $action=='add' ? 'Add New Certificate' : 'Edit Certificate'; ?>
     </div>
@@ -1137,7 +1078,7 @@ $certificates = $stmt->get_result();
             
             <!-- Page Jump Dropdown -->
             <div class="ms-3 d-none d-lg-block">
-                <select class="form-select form-select-sm" style="width: auto; border-radius: 10px;" onchange="window.location.href='home.php?tab=certificates&page=' + this.value">
+                <select class="form-select form-select-sm" style="width: auto; border-radius: 30px;" onchange="window.location.href='home.php?tab=certificates&page=' + this.value">
                     <option value="">Jump to page</option>
                     <?php for($i = 1; $i <= $total_pages; $i++): ?>
                     <option value="<?php echo $i; ?>" <?php echo ($i == $page) ? 'selected' : ''; ?>>
@@ -1150,7 +1091,7 @@ $certificates = $stmt->get_result();
         
         <!-- Mobile Quick Jump -->
         <div class="d-block d-lg-none mt-3">
-            <select class="form-select form-select-sm w-100" style="border-radius: 10px;" onchange="window.location.href='home.php?tab=certificates&page=' + this.value">
+            <select class="form-select form-select-sm w-100" style="border-radius: 30px;" onchange="window.location.href='home.php?tab=certificates&page=' + this.value">
                 <option value="">Jump to page</option>
                 <?php for($i = 1; $i <= $total_pages; $i++): ?>
                 <option value="<?php echo $i; ?>" <?php echo ($i == $page) ? 'selected' : ''; ?>>
@@ -1173,7 +1114,13 @@ $stmt->close();
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<!-- jQuery -->
+<script src="../assets/js/jquery-3.7.1.min.js"></script>
+<!-- DataTables -->
+<script src="../assets/js/datatables.min.js"></script>
+<!-- Bootstrap Bundle -->
+<script src="../assets/js/bootstrap.bundle.min.js"></script>
+
 <script>
 // Auto-hide sidebar functionality
 document.addEventListener('DOMContentLoaded', function() {
@@ -1202,6 +1149,113 @@ document.addEventListener('DOMContentLoaded', function() {
             mainContent.classList.remove('expanded');
         }
     });
+});
+
+// Enhanced Responsive Features
+document.addEventListener('DOMContentLoaded', function() {
+    
+    // Check if table is scrollable and show hint
+    function checkTableScroll() {
+        const scrollableContainers = document.querySelectorAll('.scrollable-container');
+        scrollableContainers.forEach(container => {
+            const hint = container.parentElement.querySelector('.scroll-hint');
+            if (hint) {
+                if (container.scrollWidth > container.clientWidth) {
+                    hint.style.display = 'flex';
+                } else {
+                    hint.style.display = 'none';
+                }
+            }
+        });
+    }
+    
+    // Run on load
+    checkTableScroll();
+    
+    // Run on resize
+    window.addEventListener('resize', function() {
+        checkTableScroll();
+    });
+    
+    // Mobile menu improvements
+    const menuToggle = document.getElementById('menuToggle');
+    const sidebar = document.getElementById('sidebar');
+    
+    // Close sidebar when clicking outside on mobile
+    if (window.innerWidth <= 768) {
+        document.addEventListener('click', function(event) {
+            const isClickInsideSidebar = sidebar.contains(event.target);
+            const isClickOnToggle = menuToggle.contains(event.target);
+            
+            if (!isClickInsideSidebar && !isClickOnToggle && !sidebar.classList.contains('collapsed')) {
+                sidebar.classList.add('collapsed');
+                mainContent.classList.add('expanded');
+            }
+        });
+    }
+    
+    // Touch swipe to scroll hint
+    let touchStartX = 0;
+    let touchEndX = 0;
+    
+    document.querySelectorAll('.scrollable-container').forEach(container => {
+        container.addEventListener('touchstart', function(e) {
+            touchStartX = e.changedTouches[0].screenX;
+        }, false);
+        
+        container.addEventListener('touchend', function(e) {
+            touchEndX = e.changedTouches[0].screenX;
+            handleSwipe();
+        }, false);
+    });
+    
+    function handleSwipe() {
+        const swipeThreshold = 50;
+        if (touchEndX < touchStartX - swipeThreshold) {
+            // Swiped left - show hint
+            showScrollHint('Swipe left to see more');
+        }
+        if (touchEndX > touchStartX + swipeThreshold) {
+            // Swiped right - show hint
+            showScrollHint('Swipe right to see more');
+        }
+    }
+    
+    function showScrollHint(message) {
+        const hint = document.createElement('div');
+        hint.className = 'modern-alert modern-alert-info';
+        hint.innerHTML = `<i class="fas fa-info-circle me-2"></i>${message}`;
+        hint.style.position = 'fixed';
+        hint.style.bottom = '20px';
+        hint.style.left = '50%';
+        hint.style.transform = 'translateX(-50%)';
+        hint.style.zIndex = '9999';
+        hint.style.animation = 'fadeInOut 2s';
+        
+        document.body.appendChild(hint);
+        
+        setTimeout(() => {
+            hint.remove();
+        }, 2000);
+    }
+});
+
+// Add this CSS animation
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes fadeInOut {
+        0% { opacity: 0; transform: translate(-50%, 20px); }
+        10% { opacity: 1; transform: translate(-50%, 0); }
+        90% { opacity: 1; transform: translate(-50%, 0); }
+        100% { opacity: 0; transform: translate(-50%, -20px); }
+    }
+`;
+document.head.appendChild(style);
+
+// Initialize DataTables if needed
+$(document).ready(function() {
+    // You can initialize DataTables here if you want to use it
+    // Example: $('.modern-table').DataTable();
 });
 </script>
 </body>

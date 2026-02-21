@@ -729,6 +729,12 @@ body {
     .d-md-inline { display: none !important; }
 }
 
+
+/* Highlight rows with cancellation value in FAAS Management */
+.faas-cancelled-row td{
+    background: rgba(220, 53, 69, 0.12) !important;
+}
+
 /*treasury*/
 /* Modern Treasury Dashboard Styles */
 :root {
@@ -1291,3 +1297,6 @@ body {
 ::-webkit-scrollbar-thumb:hover {
     background: var(--primary-dark);
 }
+
+/*certificate*/
+

@@ -51,7 +51,7 @@ if($tab == 'dashboard') {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Admin Dashboard - Barangay System</title>
+    <title>Admin Dashboard - T.R.A.C.S</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <!-- Required Stylesheets -->
@@ -65,7 +65,7 @@ if($tab == 'dashboard') {
     <!-- SIDEBAR -->
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
-            <h4><i class="fas fa-building me-2"></i><span>Barangay System</span></h4>
+            <h4><i class="fas fa-building me-2"></i><span>T.R.A.C.S</span></h4>
         </div>
         <nav class="nav flex-column">
             <a href="home.php" class="nav-link <?= $tab=='dashboard'?'active':'' ?>"><i class="fas fa-chart-pie"></i><span>Dashboard</span></a>

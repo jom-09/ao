@@ -96,8 +96,7 @@ require_once "../config/database.php";
                         <th>Cancellation</th>
                     </tr>
                 </thead>
-                <tbody id="recordsTableBody">
-                </tbody>
+                <tbody id="recordsTableBody"></tbody>
             </table>
         </div>
     </div>
@@ -118,7 +117,7 @@ require_once "../config/database.php";
                         <th>ID</th>
                         <th>Client</th>
                         <th>Purpose</th>
-                        <th>Certificates</th>
+                        <th>Certificates / Services</th>
                         <th>Total</th>
                         <th>Date</th>
                         <th>Actions</th>
@@ -126,39 +125,53 @@ require_once "../config/database.php";
                 </thead>
                 <tbody>
                 <?php
-                $sql = "SELECT r.id,
-                               CONCAT(c.firstname,' ',c.middlename,' ',c.lastname) AS fullname,
-                               c.purpose,
-                               r.total_amount,
-                               r.created_at
-                        FROM requests r
-                        JOIN clients c ON r.client_id = c.id
-                        WHERE r.status='PENDING'
-                        ORDER BY r.created_at DESC";
+                // ✅ UPDATED: Pull both certificates and services in ONE query
+                $sql = "
+                    SELECT
+                        r.id,
+                        CONCAT(c.firstname,' ',c.middlename,' ',c.lastname) AS fullname,
+                        c.purpose,
+                        r.total_amount,
+                        r.created_at,
+                        (
+                            SELECT GROUP_CONCAT(cert.certificate_name SEPARATOR ', ')
+                            FROM request_items ri
+                            JOIN certificates cert ON cert.id = ri.certificate_id
+                            WHERE ri.request_id = r.id
+                        ) AS certificate_list,
+                        (
+                            SELECT GROUP_CONCAT(s.service_name SEPARATOR ', ')
+                            FROM requested_services rs
+                            JOIN services s ON s.id = rs.service_id
+                            WHERE rs.request_id = r.id
+                        ) AS service_list
+                    FROM requests r
+                    JOIN clients c ON r.client_id = c.id
+                    WHERE r.status='PENDING'
+                    ORDER BY r.created_at DESC
+                ";
                 $result = $conn->query($sql);
-                $pending_count = 0;
+
                 while($row=$result->fetch_assoc()):
-                    $pending_count++;
-                    $cert_sql = "SELECT c.certificate_name 
-                                 FROM request_items ri
-                                 JOIN certificates c ON ri.certificate_id = c.id
-                                 WHERE ri.request_id=".$row['id'];
-                    $cert_res = $conn->query($cert_sql);
-                    $certs = [];
-                    while($c = $cert_res->fetch_assoc()) $certs[] = $c['certificate_name'];
+                    $items = "-";
+                    if (!empty($row['certificate_list'])) {
+                        $items = $row['certificate_list'];
+                    } elseif (!empty($row['service_list'])) {
+                        $items = $row['service_list'];
+                    }
                 ?>
                     <tr>
-                        <td><span class="id-badge">#<?php echo $row['id']; ?></span></td>
+                        <td><span class="id-badge">#<?php echo (int)$row['id']; ?></span></td>
                         <td><span class="client-name"><?php echo htmlspecialchars($row['fullname']); ?></span></td>
                         <td><?php echo htmlspecialchars($row['purpose']); ?></td>
-                        <td><span class="certs-list"><?php echo htmlspecialchars(!empty($certs) ? implode(", ", $certs) : "-"); ?></span></td>
-                        <td><span class="amount">₱<?php echo number_format($row['total_amount'],2); ?></span></td>
+                        <td><span class="certs-list"><?php echo htmlspecialchars($items); ?></span></td>
+                        <td><span class="amount">₱<?php echo number_format((float)$row['total_amount'],2); ?></span></td>
                         <td><span class="date"><?php echo date('M d, Y', strtotime($row['created_at'])); ?></span></td>
                         <td class="actions">
-                            <a href="process_request.php?id=<?php echo $row['id'];?>" class="action-btn accept">
+                            <a href="process_request.php?id=<?php echo (int)$row['id'];?>" class="action-btn accept" title="Accept / Mark Paid">
                                 <i class="fas fa-check"></i>
                             </a>
-                            <a href="process_request.php?decline=<?php echo $row['id'];?>" class="action-btn decline">
+                            <a href="process_request.php?decline=<?php echo (int)$row['id'];?>" class="action-btn decline" title="Decline">
                                 <i class="fas fa-times"></i>
                             </a>
                         </td>
@@ -192,7 +205,7 @@ require_once "../config/database.php";
                         <th>ID</th>
                         <th>Client</th>
                         <th>Purpose</th>
-                        <th>Certificates</th>
+                        <th>Certificates / Services</th>
                         <th>Total</th>
                         <th>Control No</th>
                         <th>Status</th>
@@ -201,33 +214,49 @@ require_once "../config/database.php";
                 </thead>
                 <tbody>
                 <?php
-                $sql2 = "SELECT r.id,
-                                CONCAT(c.firstname,' ',c.middlename,' ',c.lastname) AS fullname,
-                                c.purpose,
-                                r.total_amount,
-                                r.control_number,
-                                r.status,
-                                r.paid_at
-                         FROM requests r
-                         JOIN clients c ON r.client_id = c.id
-                         WHERE r.status IN('PAID','DECLINED')
-                         ORDER BY r.created_at DESC";
+
+                $sql2 = "
+                    SELECT
+                        r.id,
+                        CONCAT(c.firstname,' ',c.middlename,' ',c.lastname) AS fullname,
+                        c.purpose,
+                        r.total_amount,
+                        r.control_number,
+                        r.status,
+                        r.paid_at,
+                        (
+                            SELECT GROUP_CONCAT(cert.certificate_name SEPARATOR ', ')
+                            FROM request_items ri
+                            JOIN certificates cert ON cert.id = ri.certificate_id
+                            WHERE ri.request_id = r.id
+                        ) AS certificate_list,
+                        (
+                            SELECT GROUP_CONCAT(s.service_name SEPARATOR ', ')
+                            FROM requested_services rs
+                            JOIN services s ON s.id = rs.service_id
+                            WHERE rs.request_id = r.id
+                        ) AS service_list
+                    FROM requests r
+                    JOIN clients c ON r.client_id = c.id
+                    WHERE r.status IN('PAID','DECLINED')
+                    ORDER BY r.created_at DESC
+                ";
                 $result2 = $conn->query($sql2);
+
                 while($row=$result2->fetch_assoc()):
-                    $cert_sql2 = "SELECT c.certificate_name 
-                                  FROM request_items ri
-                                  JOIN certificates c ON ri.certificate_id = c.id
-                                  WHERE ri.request_id=".$row['id'];
-                    $cert_res2 = $conn->query($cert_sql2);
-                    $certs2 = [];
-                    while($c2 = $cert_res2->fetch_assoc()) $certs2[] = $c2['certificate_name'];
+                    $items2 = "-";
+                    if (!empty($row['certificate_list'])) {
+                        $items2 = $row['certificate_list'];
+                    } elseif (!empty($row['service_list'])) {
+                        $items2 = $row['service_list'];
+                    }
                 ?>
                     <tr>
-                        <td><span class="id-badge">#<?php echo $row['id']; ?></span></td>
+                        <td><span class="id-badge">#<?php echo (int)$row['id']; ?></span></td>
                         <td><?php echo htmlspecialchars($row['fullname']); ?></td>
                         <td><?php echo htmlspecialchars($row['purpose']); ?></td>
-                        <td><?php echo htmlspecialchars(!empty($certs2) ? implode(", ", $certs2) : "-"); ?></td>
-                        <td><span class="amount">₱<?php echo number_format($row['total_amount'],2); ?></span></td>
+                        <td><?php echo htmlspecialchars($items2); ?></td>
+                        <td><span class="amount">₱<?php echo number_format((float)$row['total_amount'],2); ?></span></td>
                         <td><span class="control-no"><?php echo htmlspecialchars($row['control_number']); ?></span></td>
                         <td>
                             <?php if($row['status']=='PAID'): ?>
@@ -236,7 +265,14 @@ require_once "../config/database.php";
                                 <span class="status-badge declined"><i class="fas fa-times-circle"></i> DECLINED</span>
                             <?php endif; ?>
                         </td>
-                        <td><span class="date"><?php echo date('M d, Y', strtotime($row['paid_at'])); ?></span></td>
+                        <td>
+                            <span class="date">
+                                <?php
+                                    $dateToShow = $row['paid_at'] ? $row['paid_at'] : date('Y-m-d');
+                                    echo date('M d, Y', strtotime($dateToShow));
+                                ?>
+                            </span>
+                        </td>
                     </tr>
                 <?php endwhile; ?>
                 </tbody>
@@ -251,17 +287,16 @@ require_once "../config/database.php";
 <script src="../assets/js/bootstrap.bundle.min.js"></script>
 
 <script>
-// Wait for jQuery to load before running any jQuery code
 $(document).ready(function() {
     console.log("jQuery loaded successfully!");
-    
+
     // Update pending count
     var pendingCount = $('#pendingTable tbody tr').length;
     $('#pendingCount').text(pendingCount);
-    
-    // Initialize DataTables with filters
+
+    // Initialize DataTables
     if ($('#pendingTable').length > 0) {
-        var pendingTable = $('#pendingTable').DataTable({
+        $('#pendingTable').DataTable({
             pageLength: 10,
             lengthMenu: [[10, 25, 50, -1], [10, 25, 50, "All"]],
             language: {
@@ -289,7 +324,7 @@ $(document).ready(function() {
             }
         });
 
-        // Custom status filter
+        // Status filter
         $('#statusFilter').on('change', function() {
             var status = $(this).val();
             if(status === '') {
@@ -300,11 +335,11 @@ $(document).ready(function() {
         });
     }
 
-    // Person search functionality
+    // Person search
     $('#searchPersonBtn').click(function() {
         var barangay = $('#barangaySelect').val();
         var ownerName = $('#personSearch').val().trim();
-        
+
         if(!barangay) {
             alert('Please select a barangay');
             return;
@@ -314,7 +349,6 @@ $(document).ready(function() {
             return;
         }
 
-        // Show loading state
         $('#searchPersonBtn').prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Searching...');
 
         $.ajax({
@@ -341,11 +375,11 @@ $(document).ready(function() {
     function displayPersonRecords(records) {
         var tbody = $('#recordsTableBody');
         tbody.empty();
-        
+
         if(records && records.length > 0) {
             $('#recordsSection').show();
             $('#recordCount').text(records.length + ' record(s) found');
-            
+
             $.each(records, function(index, record) {
                 var row = '<tr>' +
                     '<td>' + (record.declared_owner || '') + '</td>' +
@@ -373,14 +407,12 @@ $(document).ready(function() {
         }
     }
 
-    // Real-time search for person (Enter key)
     $('#personSearch').on('keyup', function(e) {
         if(e.key === 'Enter') {
             $('#searchPersonBtn').click();
         }
     });
 
-    // Optional: Add loading state to barangay select
     $('#barangaySelect').on('change', function() {
         if($(this).val()) {
             $(this).addClass('selected');
@@ -390,7 +422,6 @@ $(document).ready(function() {
     });
 });
 
-// Fallback if jQuery fails to load
 window.onerror = function(msg, url, line) {
     if(msg.indexOf('jQuery') !== -1 || msg.indexOf('$ is not defined') !== -1) {
         alert('Error loading jQuery. Please refresh the page or check your internet connection.');
@@ -399,7 +430,6 @@ window.onerror = function(msg, url, line) {
 };
 </script>
 
-<!-- Noscript fallback -->
 <noscript>
     <div style="background: #dc3545; color: white; padding: 10px; text-align: center;">
         JavaScript is required for this application to work properly. Please enable JavaScript in your browser.

@@ -39,15 +39,22 @@ $middlename = trim($client['middlename'] ?? '');
 $lastname   = trim($client['lastname'] ?? '');
 $address    = trim($client['address'] ?? '');
 $cp_no      = trim($client['cp_no'] ?? '');
-$purpose    = $client['purpose'] ?? [];
+$purpose = $client['purpose'] ?? '';
 
 // Purpose: store as STRING because clients.purpose is VARCHAR(100)
-$purposeStr = is_array($purpose)
-    ? implode(', ', array_values(array_filter($purpose)))
-    : trim((string)$purpose);
+if (is_array($purpose)) {
+    $purposeStr = implode(', ', array_values(array_filter($purpose)));
+} else {
+    $purposeStr = trim((string)$purpose);
+}
+
+// ✅ fallback for cert flow
+if ($purposeStr === '') {
+    $purposeStr = 'Certification Issuance';
+}
 
 // Required validation
-if (!$firstname || !$lastname || !$address || !$cp_no || !$purposeStr) {
+if (!$firstname || !$lastname || !$address || !$cp_no) {
     logError("Validation failed", ['client' => $client]);
     header("Location: select_cert.php?error=Please+fill+all+required+fields");
     exit();

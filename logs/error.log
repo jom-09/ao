@@ -9,3 +9,10 @@
 [2026-02-22 16:10:18] Submission failed | Context: {"error":"Column 'client_id' cannot be null","client":"Jomari Almario","trace":"#0 C:\\xampp\\htdocs\\ao\\client\\submit_request.php(128): mysqli_stmt->execute()\n#1 {main}"}
 [2026-02-22 16:18:14] Submission failed | Context: {"error":"Column 'client_id' cannot be null","client":"Jomari Almario","trace":"#0 C:\\xampp\\htdocs\\ao\\client\\submit_request.php(128): mysqli_stmt->execute()\n#1 {main}"}
 [2026-02-22 16:18:24] Submission failed | Context: {"error":"Column 'client_id' cannot be null","client":"Jomari Almario","trace":"#0 C:\\xampp\\htdocs\\ao\\client\\submit_request.php(128): mysqli_stmt->execute()\n#1 {main}"}
+[2026-02-23 03:39:03] Validation failed | Context: {"client":{"firstname":"test","middlename":"","lastname":"Almario","address":"Quirino","cp_no":"09355466407"}}
+[2026-02-23 03:53:59] Validation failed | Context: {"client":{"firstname":"test","middlename":"","lastname":"Almario","address":"Quirino","cp_no":"09355466407"}}
+[2026-02-23 03:54:02] Validation failed | Context: {"client":{"firstname":"test","middlename":"","lastname":"Almario","address":"Quirino","cp_no":"09355466407"}}
+[2026-02-23 03:54:07] Validation failed | Context: {"client":{"firstname":"test","middlename":"","lastname":"Almario","address":"Quirino","cp_no":"09355466407"}}
+[2026-02-23 04:21:49] Validation failed | Context: {"client":{"firstname":"test","middlename":"Baltazar","lastname":"Almario","address":"Quirino","cp_no":"09355466407"}}
+[2026-02-23 04:21:54] Validation failed | Context: {"client":{"firstname":"test","middlename":"Baltazar","lastname":"Almario","address":"Quirino","cp_no":"09355466407"}}
+[2026-02-23 04:36:43] Validation failed | Context: {"client":{"firstname":"test","middlename":"Baltazar","lastname":"Almario","address":"Quirino","cp_no":"09355466407"}}

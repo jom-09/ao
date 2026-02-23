@@ -3,54 +3,60 @@ session_start();
 require_once "../config/database.php";
 
 /* ===============================
-   SAVE CLIENT INFO FROM PREVIOUS PAGE
+   ERROR MESSAGE (from redirects)
 ================================== */
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $firstname  = trim($_POST['firstname'] ?? '');
-    $middlename = trim($_POST['middlename'] ?? '');
-    $lastname   = trim($_POST['lastname'] ?? '');
-    $address    = trim($_POST['address'] ?? '');
-    $cp_no      = trim($_POST['cp_no'] ?? '');
+$error = '';
+if (isset($_GET['error'])) $error = htmlspecialchars($_GET['error']);
 
-    // Handle multi-select purpose (always array)
-    $purposeInput = $_POST['purpose'] ?? [];
-    $purpose = is_array($purposeInput) ? $purposeInput : [$purposeInput];
-    $purpose = array_values(array_filter($purpose));
-
-    // Required validation
-    if (!$firstname || !$lastname || !$address || !$cp_no || empty($purpose)) {
-        header("Location: index.php?error=Please+fill+all+required+fields");
-        exit();
-    }
-
-    // CP number validation (PH formats)
-    if (!preg_match('/^(09\d{9}|\+63\d{10})$/', $cp_no)) {
-        header("Location: index.php?error=Invalid+contact+number");
-        exit();
-    }
-
-    $_SESSION['client_info'] = [
-        'firstname'  => $firstname,
-        'middlename' => $middlename,
-        'lastname'   => $lastname,
-        'address'    => $address,
-        'cp_no'      => $cp_no,
-        'purpose'    => $purpose
-    ];
-
-} else {
-    // Direct access guard
-    if (!isset($_SESSION['client_info']) || !is_array($_SESSION['client_info'])) {
-        header("Location: index.php");
-        exit();
-    }
+/* ===============================
+   GUARDS (strict flow)
+================================== */
+if (!isset($_SESSION['client_info']) || !is_array($_SESSION['client_info'])) {
+    header("Location: index.php?error=Session+expired.+Please+try+again.");
+    exit();
 }
+
+$service = $_SESSION['selected_service'] ?? '';
+if ($service !== 'cert') {
+    header("Location: index.php?error=Invalid+flow.");
+    exit();
+}
+
+/* ===============================
+   CLIENT DATA (from session)
+================================== */
+$client = $_SESSION['client_info'];
+
+$firstname  = trim($client['firstname'] ?? '');
+$middlename = trim($client['middlename'] ?? '');
+$lastname   = trim($client['lastname'] ?? '');
+$address    = trim($client['address'] ?? '');
+$cp_no      = trim($client['cp_no'] ?? '');
+
+if ($firstname === '' || $lastname === '' || $address === '' || $cp_no === '') {
+    header("Location: index.php?error=Please+fill+all+required+fields");
+    exit();
+}
+
+// Validate cp_no (PH formats)
+if (!preg_match('/^(09\d{9}|\+63\d{10})$/', $cp_no)) {
+    header("Location: index.php?error=Invalid+contact+number");
+    exit();
+}
+
+/* ===============================
+   DISPLAY LABEL
+================================== */
+$purposeDisplay = "Certification Issuance";
 
 /* ===============================
    FETCH ACTIVE CERTIFICATES
 ================================== */
 $certificates = [];
-$sql = "SELECT * FROM certificates WHERE status='active' ORDER BY certificate_name ASC";
+$sql = "SELECT id, certificate_name, description, price
+        FROM certificates
+        WHERE status='active'
+        ORDER BY certificate_name ASC";
 $result = $conn->query($sql);
 
 if ($result && $result->num_rows > 0) {
@@ -58,9 +64,6 @@ if ($result && $result->num_rows > 0) {
         $certificates[] = $row;
     }
 }
-
-$client = $_SESSION['client_info'];
-$purposeDisplay = implode(', ', $client['purpose']);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -74,7 +77,7 @@ $purposeDisplay = implode(', ', $client['purpose']);
     <link rel="stylesheet" href="../assets/bootstrap/css/datatables.min.css">
     <link href="../assets/bootstrap/css/style.css" rel="stylesheet">
 
-    <!-- Bootstrap Icons (if CSP blocks CDN, download locally later) -->
+    <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
 </head>
 <body>
@@ -102,6 +105,14 @@ $purposeDisplay = implode(', ', $client['purpose']);
     <div class="cert-card card shadow-lg border-0">
         <div class="card-body p-4 p-md-5">
 
+            <!-- ✅ ERROR ALERT -->
+            <?php if($error): ?>
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    <i class="bi bi-exclamation-triangle me-2"></i><?php echo $error; ?>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            <?php endif; ?>
+
             <!-- Header -->
             <div class="text-center mb-4">
                 <div class="brand-icon mb-3">
@@ -120,19 +131,19 @@ $purposeDisplay = implode(', ', $client['purpose']);
                         </div>
                         <div class="flex-grow-1">
                             <h6 class="mb-0 fw-semibold">
-                                <?php echo htmlspecialchars($client['firstname'] . ' ' . $client['lastname']); ?>
+                                <?php echo htmlspecialchars($firstname . ' ' . $lastname); ?>
                             </h6>
                             <small class="text-muted d-block">
                                 <i class="bi bi-geo-alt me-1"></i>
-                                <?php echo htmlspecialchars($client['address']); ?>
+                                <?php echo htmlspecialchars($address); ?>
                             </small>
                             <small class="text-muted d-block mt-1">
                                 <i class="bi bi-telephone me-1"></i>
-                                <?php echo htmlspecialchars($client['cp_no']); ?>
+                                <?php echo htmlspecialchars($cp_no); ?>
                             </small>
                         </div>
                         <div class="text-end">
-                            <small class="d-block text-muted">Purpose</small>
+                            <small class="d-block text-muted">Transaction</small>
                             <span class="badge bg-primary"><?php echo htmlspecialchars($purposeDisplay); ?></span>
                         </div>
                     </div>
@@ -166,12 +177,17 @@ $purposeDisplay = implode(', ', $client['purpose']);
                         </div>
                     <?php else: ?>
                         <?php foreach ($certificates as $cert): ?>
-                            <label class="cert-item"
-                                   data-name="<?php echo strtolower(htmlspecialchars($cert['certificate_name'])); ?>">
-                                <input type="checkbox" name="certificates[]"
-                                       value="<?php echo (int)$cert['id']; ?>"
-                                       class="cert-checkbox d-none"
-                                       data-price="<?php echo (float)$cert['price']; ?>">
+                            <?php
+                                $certName = (string)$cert['certificate_name'];
+                                $dataName = strtolower($certName);
+                            ?>
+                            <label class="cert-item" data-name="<?php echo htmlspecialchars($dataName); ?>">
+                                <!-- ✅ FIX: hidden but still submittable -->
+                                <input type="checkbox"
+                                    name="certificates[]"
+                                    value="<?php echo (int)$cert['id']; ?>"
+                                    class="cert-checkbox visually-hidden"
+                                    data-price="<?php echo (float)$cert['price']; ?>">
 
                                 <div class="cert-card-inner">
                                     <div class="cert-badge">
@@ -180,8 +196,8 @@ $purposeDisplay = implode(', ', $client['purpose']);
                                     <div class="cert-icon">
                                         <i class="bi bi-file-earmark-check"></i>
                                     </div>
-                                    <h6 class="cert-title"><?php echo htmlspecialchars($cert['certificate_name']); ?></h6>
-                                    <p class="cert-desc"><?php echo htmlspecialchars($cert['description']); ?></p>
+                                    <h6 class="cert-title"><?php echo htmlspecialchars($certName); ?></h6>
+                                    <p class="cert-desc"><?php echo htmlspecialchars($cert['description'] ?? ''); ?></p>
                                     <div class="cert-price">₱<?php echo number_format((float)$cert['price'], 2); ?></div>
                                     <div class="cert-check">
                                         <i class="bi bi-check-circle-fill"></i>
@@ -208,7 +224,8 @@ $purposeDisplay = implode(', ', $client['purpose']);
                             <i class="bi bi-arrow-left me-1"></i>Back
                         </a>
 
-                        <button type="submit" class="btn btn-submit btn-lg px-5" id="submitBtn" disabled>
+                        <!-- ✅ disabled by default; JS will enable -->
+                        <button type="submit" class="btn btn-submit" id="submitBtn" disabled>
                             <span class="btn-text">Continue <i class="bi bi-arrow-right ms-1"></i></span>
                             <span class="btn-loading d-none">
                                 <span class="spinner-border spinner-border-sm me-2" role="status"></span>
@@ -233,7 +250,6 @@ $purposeDisplay = implode(', ', $client['purpose']);
     <div class="bg-decoration"></div>
 </div>
 
-<!-- Framework JS -->
 <script src="../assets/js/bootstrap.bundle.min.js" defer></script>
 <script src="../assets/js/select_cert.js" defer></script>
 

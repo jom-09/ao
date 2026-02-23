@@ -32,6 +32,21 @@ if(isset($_GET['release'])){
     exit();
 }
 
+// ✅ Accept Services (Admin only): PAID -> RELEASED
+if(isset($_GET['accept_service'])){
+    $req_id = intval($_GET['accept_service']);
+    $stmt = $conn->prepare("
+        UPDATE requests 
+        SET status='RELEASED'
+        WHERE id=? AND status='PAID'
+    ");
+    $stmt->bind_param("i",$req_id);
+    $stmt->execute();
+    $stmt->close();
+    header("Location: home.php?tab=requests");
+    exit();
+}
+
 $tab = $_GET['tab'] ?? 'dashboard';
 
 // Get counts for dashboard
@@ -45,6 +60,37 @@ if($tab == 'dashboard') {
         $count = $conn->query("SELECT COUNT(*) as count FROM `$table`")->fetch_assoc()['count'];
         $total_faas += $count;
     }
+}
+
+//status update
+if(isset($_GET['prepare'])){
+    $id = intval($_GET['prepare']);
+
+    $stmt = $conn->prepare("
+        UPDATE requests 
+        SET status='PREPARED'
+        WHERE id=? AND status='PAID'
+    ");
+    $stmt->bind_param("i",$id);
+    $stmt->execute();
+
+    header("Location: home.php?tab=requests");
+    exit();
+}
+
+if(isset($_GET['release'])){
+    $id = intval($_GET['release']);
+
+    $stmt = $conn->prepare("
+        UPDATE requests 
+        SET status='RELEASED'
+        WHERE id=? AND status='PROCESSED'
+    ");
+    $stmt->bind_param("i",$id);
+    $stmt->execute();
+
+    header("Location: home.php?tab=requests");
+    exit();
 }
 ?>
 <!DOCTYPE html>
@@ -149,44 +195,97 @@ if($tab == 'dashboard') {
                                 </thead>
                                 <tbody>
                                 <?php
-                                $sql = "SELECT r.id, CONCAT(c.firstname,' ',c.middlename,' ',c.lastname) AS fullname, c.purpose, r.total_amount, r.control_number, r.status, r.created_at
-                                        FROM requests r
-                                        JOIN clients c ON r.client_id = c.id
-                                        ORDER BY r.created_at DESC";
-                                $result = $conn->query($sql);
-                                while($row = $result->fetch_assoc()):
-                                    $cert_sql = "SELECT c.certificate_name
-                                                 FROM request_items ri
-                                                 JOIN certificates c ON ri.certificate_id = c.id
-                                                 WHERE ri.request_id=".$row['id'];
-                                    $cert_res = $conn->query($cert_sql);
-                                    $certs = [];
-                                    while($c = $cert_res->fetch_assoc()) $certs[] = $c['certificate_name'];
-                                ?>
+                               $sql = "
+    SELECT 
+        r.id,
+        CONCAT(c.firstname,' ',c.middlename,' ',c.lastname) AS fullname,
+        c.purpose,
+        r.total_amount,
+        r.control_number,
+        r.status,
+        r.created_at,
+        (
+            SELECT GROUP_CONCAT(cert.certificate_name SEPARATOR ', ')
+            FROM request_items ri
+            JOIN certificates cert ON cert.id = ri.certificate_id
+            WHERE ri.request_id = r.id
+        ) AS certificate_list,
+        (
+            SELECT GROUP_CONCAT(s.service_name SEPARATOR ', ')
+            FROM requested_services rs
+            JOIN services s ON s.id = rs.service_id
+            WHERE rs.request_id = r.id
+        ) AS service_list
+    FROM requests r
+    JOIN clients c ON r.client_id = c.id
+    ORDER BY r.created_at DESC
+";
+$result = $conn->query($sql);
+
+while($row = $result->fetch_assoc()):
+    $items = "-";
+    if (!empty($row['certificate_list'])) {
+        $items = $row['certificate_list'];
+    } elseif (!empty($row['service_list'])) {
+        $items = $row['service_list'];
+    }
+
+    $isServices = (strtolower(trim($row['purpose'])) === 'services');
+?>
                                 <tr>
                                     <td>#<?= $row['id'] ?></td>
                                     <td><?= htmlspecialchars($row['fullname']) ?></td>
                                     <td><?= htmlspecialchars($row['purpose']) ?></td>
-                                    <td><?= htmlspecialchars(implode(", ", $certs)) ?></td>
+                                    
                                     <td><strong>₱<?= number_format($row['total_amount'],2) ?></strong></td>
                                     <td><?= htmlspecialchars($row['control_number']) ?></td>
                                     <td><span class="status-badge <?= strtolower($row['status']) ?>"><?= $row['status'] ?></span></td>
                                     <td>
-                                        <?php if($row['status']=='PAID'): ?>
-                                            <a href="home.php?prepare=<?= $row['id'];?>" class="modern-btn modern-btn-info modern-btn-sm">
-                                                <i class="fas fa-check-circle me-1"></i> Prepared
-                                            </a>
-                                        <?php elseif($row['status']=='PREPARED'): ?>
-                                            <a href="home.php?release=<?= $row['id'];?>" class="modern-btn modern-btn-primary modern-btn-sm">
-                                                <i class="fas fa-check-double me-1"></i> Released
-                                            </a>
-                                        <?php else: ?>
-                                            <a href="process_certificate.php?request_id=<?= $row['id']; ?>"
-                                               class="modern-btn modern-btn-warning modern-btn-sm">
-                                                <i class="fas fa-cogs me-1"></i> Process
-                                            </a>
-                                        <?php endif; ?>
-                                    </td>
+    <?php if($row['status'] == 'PAID'): ?>
+
+        <?php if($isServices): ?>
+            <!-- SERVICES: Accept only (PAID -> RELEASED) -->
+            <a href="home.php?tab=requests&accept_service=<?= (int)$row['id']; ?>"
+               class="modern-btn modern-btn-success modern-btn-sm"
+               onclick="return confirm('Accept this service request? This will mark it as RELEASED.');">
+                <i class="fas fa-check-circle me-1"></i> Accept
+            </a>
+        <?php else: ?>
+            <!-- CERTIFICATES: PREPARE -->
+            <a href="home.php?prepare=<?= (int)$row['id']; ?>"
+               class="modern-btn modern-btn-info modern-btn-sm">
+                <i class="fas fa-check-circle me-1"></i> Prepare
+            </a>
+        <?php endif; ?>
+
+    <?php elseif($row['status'] == 'PREPARED'): ?>
+
+        <?php if($isServices): ?>
+            <span class="badge bg-secondary">No Action</span>
+        <?php else: ?>
+            <!-- CERTIFICATES: PROCESS -->
+            <a href="process_certificate.php?request_id=<?= (int)$row['id']; ?>"
+               class="modern-btn modern-btn-warning modern-btn-sm">
+                <i class="fas fa-cogs me-1"></i> Process
+            </a>
+        <?php endif; ?>
+
+    <?php elseif($row['status'] == 'PROCESSED'): ?>
+
+        <?php if($isServices): ?>
+            <span class="badge bg-secondary">No Action</span>
+        <?php else: ?>
+            <!-- CERTIFICATES: RELEASE -->
+            <a href="home.php?release=<?= (int)$row['id']; ?>"
+               class="modern-btn modern-btn-primary modern-btn-sm">
+                <i class="fas fa-check-double me-1"></i> Released
+            </a>
+        <?php endif; ?>
+
+    <?php else: ?>
+        <span class="badge bg-secondary">No Action</span>
+    <?php endif; ?>
+</td>
                                     <td><?= date('M d, Y', strtotime($row['created_at'])) ?></td>
                                 </tr>
                                 <?php endwhile; ?>

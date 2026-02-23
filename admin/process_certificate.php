@@ -272,6 +272,14 @@ if (isset($_POST['generate'])) {
         }
     }
 }
+
+$stmt = $conn->prepare("
+    UPDATE requests
+    SET status='PROCESSED'
+    WHERE id=?
+");
+$stmt->bind_param("i",$request_id);
+$stmt->execute();
 ?>
 <!DOCTYPE html>
 <html lang="en">

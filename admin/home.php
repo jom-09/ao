@@ -444,87 +444,197 @@ while($row = $result->fetch_assoc()):
 
             <?php elseif($tab=='find'): ?>
 
-                <?php
-                $results = [];
-                $selected_barangay = $_GET['barangay'] ?? '';
-                $search_name = trim($_GET['search'] ?? '');
-                if (!empty($selected_barangay) && !empty($search_name) && in_array($selected_barangay, $allowed_tables)) {
-                    $stmt = $conn->prepare("SELECT * FROM `$selected_barangay` WHERE declared_owner LIKE CONCAT('%', ?, '%')");
-                    $stmt->bind_param("s", $search_name);
-                    $stmt->execute();
-                    $res = $stmt->get_result();
-                    while($row = $res->fetch_assoc()) $results[] = $row;
-                    $stmt->close();
-                }
-                ?>
+<?php
+$results_barangay = [];
+$results_master   = [];
 
-                <div class="scroll-indicator"><i class="fas fa-arrow-left me-2"></i> Swipe to scroll table <i class="fas fa-arrow-right ms-2"></i></div>
-                <div class="modern-card mb-4">
-                    <div class="card-header"><i class="fas fa-search me-2"></i> Find Record</div>
-                    <div class="card-body">
-                        <form method="GET">
-                            <input type="hidden" name="tab" value="find">
-                            <div class="row g-3">
-                                <div class="col-md-5 col-sm-12">
-                                    <label class="modern-form-label">Barangay</label>
-                                    <select name="barangay" class="modern-form-select" required>
-                                        <option value="">-- Select Barangay --</option>
-                                        <?php foreach($allowed_tables as $table): ?>
-                                            <option value="<?= $table ?>" <?= $selected_barangay==$table ? "selected" : "" ?>><?= ucwords(str_replace('_',' ',$table)) ?></option>
-                                        <?php endforeach; ?>
-                                    </select>
-                                </div>
-                                <div class="col-md-5 col-sm-12">
-                                    <label class="modern-form-label">Search Declared Owner</label>
-                                    <input type="text" name="search" class="modern-form-control" value="<?= htmlspecialchars($search_name) ?>" placeholder="Enter declared owner name" required>
-                                </div>
-                                <div class="col-md-2 col-sm-12 d-flex align-items-end">
-                                    <button type="submit" class="modern-btn modern-btn-primary w-100"><i class="fas fa-search me-2"></i> Search</button>
-                                </div>
-                            </div>
-                        </form>
-                    </div>
+$selected_barangay = $_GET['barangay'] ?? '';
+$search_name       = trim($_GET['search'] ?? '');          // per-barangay
+$search_global     = trim($_GET['search_global'] ?? '');   // global (land_holdings_master)
+
+// ✅ PER-BARANGAY SEARCH (existing behavior)
+if ($selected_barangay !== '' && $search_name !== '' && in_array($selected_barangay, $allowed_tables)) {
+    $stmt = $conn->prepare("SELECT * FROM `$selected_barangay` WHERE declared_owner LIKE CONCAT('%', ?, '%')");
+    $stmt->bind_param("s", $search_name);
+    $stmt->execute();
+    $res = $stmt->get_result();
+    while($row = $res->fetch_assoc()) $results_barangay[] = $row;
+    $stmt->close();
+}
+
+// ✅ GLOBAL SEARCH (land_holdings_master)
+if ($search_global !== '') {
+    // NOTE: backticks important dahil may dot yung column name `ARP_No.` and `PIN_No.`
+    $sql = "SELECT 
+                declared_owner, owner_address, property_location, title, lot,
+                `ARP_No.` AS `ARP_No.`, `PIN_No.` AS `PIN_No.`,
+                classification, actual_use, area, mv, av, taxability, effectivity, cancellation
+            FROM `land_holdings_master`
+            WHERE declared_owner LIKE CONCAT('%', ?, '%')
+            ORDER BY declared_owner ASC, property_location ASC";
+
+    $stmt2 = $conn->prepare($sql);
+    $stmt2->bind_param("s", $search_global);
+    $stmt2->execute();
+    $res2 = $stmt2->get_result();
+    while($row = $res2->fetch_assoc()) $results_master[] = $row;
+    $stmt2->close();
+}
+
+// columns to display (same layout)
+$display_fields = [
+    'declared_owner','owner_address','property_location','title','lot',
+    'ARP_No.','PIN_No.','classification','actual_use','area',
+    'mv','av','taxability','effectivity','cancellation'
+];
+?>
+
+<div class="scroll-indicator"><i class="fas fa-arrow-left me-2"></i> Swipe to scroll table <i class="fas fa-arrow-right ms-2"></i></div>
+
+<div class="modern-card mb-4">
+    <div class="card-header"><i class="fas fa-search me-2"></i> Find Record</div>
+    <div class="card-body">
+        <form method="GET">
+            <input type="hidden" name="tab" value="find">
+
+            <div class="row g-3">
+                <!-- ✅ Barangay Search -->
+                <div class="col-md-4 col-sm-12">
+                    <label class="modern-form-label">Barangay (Optional for Barangay Search)</label>
+                    <select name="barangay" class="modern-form-select">
+                        <option value="">-- Select Barangay --</option>
+                        <?php foreach($allowed_tables as $table): ?>
+                            <option value="<?= $table ?>" <?= $selected_barangay==$table ? "selected" : "" ?>>
+                                <?= ucwords(str_replace('_',' ',$table)) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
                 </div>
 
-                <?php if(!empty($results)): ?>
-                    <div class="modern-card">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <span><i class="fas fa-list me-2"></i> Search Results</span>
-                            <span class="badge bg-primary" style="font-size: 0.9rem; padding: 8px 15px; border-radius: 30px;">
-                                <i class="fas fa-database me-1"></i> Found: <?= count($results) ?> record(s)
-                            </span>
-                        </div>
-                        <div class="card-body p-0">
-                            <div class="scrollable-container">
-                                <div class="table-responsive">
-                                    <table class="modern-table find-record-table">
-                                        <thead>
-                                            <tr>
-                                                <th>Declared Owner</th><th>Owner Address</th><th>Property Location</th><th>Title</th><th>Lot</th>
-                                                <th>ARP No.</th><th>PIN No.</th><th>Classification</th><th>Actual Use</th><th>Area</th>
-                                                <th>Market Value</th><th>Assessed Value</th><th>Taxability</th><th>Effectivity</th><th>Cancellation</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                        <?php foreach($results as $row): ?>
-                                            <tr>
-                                                <?php foreach(['declared_owner','owner_address','property_location','title','lot','ARP_No.','PIN_No.','classification','actual_use','area','mv','av','taxability','effectivity','cancellation'] as $field): ?>
-                                                    <td title="<?= htmlspecialchars($row[$field]) ?>"><?= htmlspecialchars($row[$field]) ?></td>
-                                                <?php endforeach; ?>
-                                            </tr>
-                                        <?php endforeach; ?>
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                            <div class="scroll-hint"><i class="fas fa-arrow-left"></i><span class="mx-2">Scroll horizontally to see more columns</span><i class="fas fa-arrow-right"></i></div>
-                        </div>
+                <div class="col-md-4 col-sm-12">
+                    <label class="modern-form-label">Search Declared Owner (Barangay)</label>
+                    <input type="text" name="search" class="modern-form-control"
+                           value="<?= htmlspecialchars($search_name) ?>"
+                           placeholder="Search owner inside selected barangay">
+                </div>
+
+                <!-- ✅ Global Search -->
+                <div class="col-md-4 col-sm-12">
+                    <label class="modern-form-label">Global Search Declared Owner (Master List)</label>
+                    <input type="text" name="search_global" class="modern-form-control"
+                           value="<?= htmlspecialchars($search_global) ?>"
+                           placeholder="Search owner in land_holdings_master (all locations)">
+                </div>
+
+                <div class="col-md-2 col-sm-12 d-flex align-items-end">
+                    <button type="submit" class="modern-btn modern-btn-primary w-100">
+                        <i class="fas fa-search me-2"></i> Search
+                    </button>
+                </div>
+            </div>
+
+            <small class="text-muted d-block mt-2">
+                Tip: You can use <b>Barangay search</b>, <b>Global search</b>, or <b>both</b> at the same time.
+            </small>
+        </form>
+    </div>
+</div>
+
+<!-- ===========================
+     ✅ GLOBAL RESULTS (MASTER)
+=========================== -->
+<?php if($search_global !== ''): ?>
+    <?php if(!empty($results_master)): ?>
+        <div class="modern-card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-globe me-2"></i> Global Results (land_holdings_master)</span>
+                <span class="badge bg-primary" style="font-size: 0.9rem; padding: 8px 15px; border-radius: 30px;">
+                    <i class="fas fa-database me-1"></i> Found: <?= count($results_master) ?> record(s)
+                </span>
+            </div>
+            <div class="card-body p-0">
+                <div class="scrollable-container">
+                    <div class="table-responsive">
+                        <table class="modern-table find-record-table">
+                            <thead>
+                                <tr>
+                                    <th>Declared Owner</th><th>Owner Address</th><th>Property Location</th><th>Title</th><th>Lot</th>
+                                    <th>ARP No.</th><th>PIN No.</th><th>Classification</th><th>Actual Use</th><th>Area</th>
+                                    <th>Market Value</th><th>Assessed Value</th><th>Taxability</th><th>Effectivity</th><th>Cancellation</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            <?php foreach($results_master as $row): ?>
+                                <tr>
+                                    <?php foreach($display_fields as $field): ?>
+                                        <td title="<?= htmlspecialchars($row[$field] ?? '') ?>">
+                                            <?= htmlspecialchars($row[$field] ?? '') ?>
+                                        </td>
+                                    <?php endforeach; ?>
+                                </tr>
+                            <?php endforeach; ?>
+                            </tbody>
+                        </table>
                     </div>
-                <?php elseif(!empty($search_name)): ?>
-                    <div class="modern-alert modern-alert-warning">
-                        <i class="fas fa-exclamation-triangle me-2"></i> No records found for "<?= htmlspecialchars($search_name) ?>" in <?= ucwords(str_replace('_',' ',$selected_barangay)) ?>.
+                </div>
+                <div class="scroll-hint"><i class="fas fa-arrow-left"></i><span class="mx-2">Scroll horizontally to see more columns</span><i class="fas fa-arrow-right"></i></div>
+            </div>
+        </div>
+    <?php else: ?>
+        <div class="modern-alert modern-alert-warning mb-4">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            No global records found for "<?= htmlspecialchars($search_global) ?>" in land_holdings_master.
+        </div>
+    <?php endif; ?>
+<?php endif; ?>
+
+<!-- ===========================
+     ✅ BARANGAY RESULTS (OLD)
+=========================== -->
+<?php if($selected_barangay !== '' && $search_name !== ''): ?>
+    <?php if(!empty($results_barangay)): ?>
+        <div class="modern-card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-list me-2"></i> Barangay Results (<?= ucwords(str_replace('_',' ',$selected_barangay)) ?>)</span>
+                <span class="badge bg-primary" style="font-size: 0.9rem; padding: 8px 15px; border-radius: 30px;">
+                    <i class="fas fa-database me-1"></i> Found: <?= count($results_barangay) ?> record(s)
+                </span>
+            </div>
+            <div class="card-body p-0">
+                <div class="scrollable-container">
+                    <div class="table-responsive">
+                        <table class="modern-table find-record-table">
+                            <thead>
+                                <tr>
+                                    <th>Declared Owner</th><th>Owner Address</th><th>Property Location</th><th>Title</th><th>Lot</th>
+                                    <th>ARP No.</th><th>PIN No.</th><th>Classification</th><th>Actual Use</th><th>Area</th>
+                                    <th>Market Value</th><th>Assessed Value</th><th>Taxability</th><th>Effectivity</th><th>Cancellation</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            <?php foreach($results_barangay as $row): ?>
+                                <tr>
+                                    <?php foreach($display_fields as $field): ?>
+                                        <td title="<?= htmlspecialchars($row[$field] ?? '') ?>">
+                                            <?= htmlspecialchars($row[$field] ?? '') ?>
+                                        </td>
+                                    <?php endforeach; ?>
+                                </tr>
+                            <?php endforeach; ?>
+                            </tbody>
+                        </table>
                     </div>
-                <?php endif; ?>
+                </div>
+                <div class="scroll-hint"><i class="fas fa-arrow-left"></i><span class="mx-2">Scroll horizontally to see more columns</span><i class="fas fa-arrow-right"></i></div>
+            </div>
+        </div>
+    <?php else: ?>
+        <div class="modern-alert modern-alert-warning">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            No records found for "<?= htmlspecialchars($search_name) ?>" in <?= ucwords(str_replace('_',' ',$selected_barangay)) ?>.
+        </div>
+    <?php endif; ?>
+<?php endif; ?>
 
   <?php elseif($tab=='faas'): ?>
 

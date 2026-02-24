@@ -1,4 +1,8 @@
 <?php
+ini_set('display_errors', 0);
+error_reporting(E_ALL);
+
+ob_start();
 require_once "../includes/auth_check.php";
 require_once "../config/database.php";
 
@@ -229,42 +233,69 @@ if (isset($_POST['generate'])) {
                     $template->saveAs("php://output");
                     exit;
 
-                case 'total_land':
-                    $template_path = '../templates/total_land_template.docx';
-                    if(!file_exists($template_path)) die("Template not found: $template_path");
+              case 'total_land':
 
-                    $template = new TemplateProcessor($template_path);
+    $template_path = '../templates/total_land_template.docx';
+    if(!file_exists($template_path)) {
+        $errors[] = "Template not found: $template_path";
+        break;
+    }
 
-                    $template->setValue('declared_owner', $data['declared_owner'] ?? '');
-                    $template->setValue('owner_address', $data['owner_address'] ?? '');
+    // ✅ ensure holdings exist
+    if (!isset($data['holdings']) || !is_array($data['holdings']) || count($data['holdings']) === 0) {
+        $errors[] = "No holdings found for this owner.";
+        break;
+    }
 
-                    $template->setValue('day', date('d'));
-                    $template->setValue('month', date('F'));
-                    $template->setValue('year', date('Y'));
+    $template = new TemplateProcessor($template_path);
 
-                    $holdings = $data['holdings'];
-                    $count = count($holdings);
+    // header fields
+    $template->setValue('declared_owner', $data['declared_owner'] ?? '');
+    $template->setValue('owner_address', $data['owner_address'] ?? '');
 
-                    // Must exist in template table row: ${td_no} ${property_location} ${area} ${classification} ${mv} ${av}
-                    $template->cloneRow('td_no', $count);
+    $template->setValue('day', date('d'));
+    $template->setValue('month', date('F'));
+    $template->setValue('year', date('Y'));
 
-                    for ($i = 1; $i <= $count; $i++) {
-                        $row = $holdings[$i - 1];
+    $holdings = $data['holdings'];
+    $count = count($holdings);
 
-                        $template->setValue("td_no#$i", $row['td_no'] ?? '');
-                        $template->setValue("property_location#$i", $row['property_location'] ?? '');
-                        $template->setValue("area#$i", $row['area'] ?? '');
-                        $template->setValue("classification#$i", $row['classification'] ?? '');
-                        $template->setValue("mv#$i", $row['mv'] ?? '');
-                        $template->setValue("av#$i", $row['av'] ?? '');
-                    }
+    // ✅ clone table rows
+    $template->cloneRow('td_no', $count);
 
-                    $filename = "Total_Land_Holding_" . ($data['declared_owner'] ?? 'record') . ".docx";
+    for ($i = 1; $i <= $count; $i++) {
+        $row = $holdings[$i - 1];
 
-                    header("Content-Disposition: attachment; filename=\"$filename\"");
-                    header("Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document");
-                    $template->saveAs("php://output");
-                    exit;
+        // td_no is from SELECT `ARP_No.` AS td_no
+        $template->setValue("td_no#$i", $row['td_no'] ?? '');
+        $template->setValue("property_location#$i", $row['property_location'] ?? '');
+        $template->setValue("area#$i", $row['area'] ?? '');
+        $template->setValue("classification#$i", $row['classification'] ?? '');
+        $template->setValue("mv#$i", $row['mv'] ?? '');
+        $template->setValue("av#$i", $row['av'] ?? '');
+    }
+
+    $safeOwner = preg_replace('/[^A-Za-z0-9_\- ]/', '', $data['declared_owner'] ?? '');
+    $safeOwner = str_replace(' ', '_', trim($safeOwner));
+    $filename = "Total_Land_Holding_" . ($safeOwner ?: 'record') . ".docx";
+
+    // ✅ clear any output captured by ob_start()
+    ob_clean();
+
+    // ✅ save to temp file then stream (prevents corrupt docx)
+    $tmpFile = tempnam(sys_get_temp_dir(), 'docx_') . '.docx';
+    $template->saveAs($tmpFile);
+
+    header('Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    header('Content-Disposition: attachment; filename="'.$filename.'"');
+    header('Content-Length: ' . filesize($tmpFile));
+    header('Cache-Control: must-revalidate');
+    header('Pragma: public');
+
+    readfile($tmpFile);
+    @unlink($tmpFile);
+    exit;
+
 
                     case 'actual_use':
     $template_path = '../templates/actual_location.docx';

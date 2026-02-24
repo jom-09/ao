@@ -21,6 +21,7 @@ $certificates = [
     'no_improvement' => 'Certificate of No Improvement',
     'no_declared'    => 'Certificate of No Declared Property',
     'total_land'     => 'Total Land Holding',
+    'actual_use'     => 'Actual Location', 
 ];
 
 if (isset($_POST['generate'])) {
@@ -264,6 +265,36 @@ if (isset($_POST['generate'])) {
                     header("Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document");
                     $template->saveAs("php://output");
                     exit;
+
+                    case 'actual_use':
+    $template_path = '../templates/actual_location.docx';
+
+    if(!file_exists($template_path)) {
+        die("Template not found: $template_path");
+    }
+
+
+    $template = new TemplateProcessor($template_path);
+
+
+    $template->setValue('declared_owner', $data['declared_owner'] ?? '');
+    $template->setValue('arp_no',         $data['ARP_No.'] ?? '');
+    $template->setValue('title',          $data['title'] ?? '');
+    $template->setValue('lot',            $data['lot'] ?? '');
+    $template->setValue('property_location', $data['property_location'] ?? '');
+    $template->setValue('area',           $data['area'] ?? '');
+
+    // Optional date placeholders if your template has them (safe kahit wala)
+    $template->setValue('day', date('d'));
+    $template->setValue('month', date('F'));
+    $template->setValue('year', date('Y'));
+
+    $filename = "Actual_Location_" . (($data['ARP_No.'] ?? 'record')) . ".docx";
+
+    header("Content-Disposition: attachment; filename=\"$filename\"");
+    header("Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+    $template->saveAs("php://output");
+    exit;
 
                 default:
                     $errors[] = "Certificate type not implemented yet.";

@@ -18,17 +18,71 @@ $allowed_tables = [
 $tab = $_GET['tab'] ?? 'dashboard';
 
 /* ===============================
-   DASHBOARD COUNTS (PENDING + PAID only)
+   DASHBOARD COUNTS + CHART DATA (PENDING + PAID only)
 ================================== */
 if($tab == 'dashboard') {
-    $pending_count  = (int)$conn->query("SELECT COUNT(*) as count FROM requests WHERE status='PENDING'")->fetch_assoc()['count'];
-    $paid_count     = (int)$conn->query("SELECT COUNT(*) as count FROM requests WHERE status='PAID'")->fetch_assoc()['count'];
 
+    // Request status counts
+    $pending_count  = (int)$conn->query("SELECT COUNT(*) c FROM requests WHERE status='PENDING'")->fetch_assoc()['c'];
+    $paid_count     = (int)$conn->query("SELECT COUNT(*) c FROM requests WHERE status='PAID'")->fetch_assoc()['c'];
+
+    // Total FAAS records (sum of barangay tables)
     $total_faas = 0;
     foreach($allowed_tables as $table) {
-        $count = (int)$conn->query("SELECT COUNT(*) as count FROM `$table`")->fetch_assoc()['count'];
+        $count = (int)$conn->query("SELECT COUNT(*) c FROM `$table`")->fetch_assoc()['c'];
         $total_faas += $count;
     }
+
+    // ✅ Total land_holdings_master
+    $master_total = (int)$conn->query("SELECT COUNT(*) c FROM land_holdings_master")->fetch_assoc()['c'];
+
+    // ✅ Pie: Certificates vs Services (count of requested items for PENDING/PAID requests)
+    $cert_items = (int)$conn->query("
+        SELECT COUNT(*) c
+        FROM request_items ri
+        JOIN requests r ON r.id = ri.request_id
+        WHERE r.status IN ('PENDING','PAID')
+    ")->fetch_assoc()['c'];
+
+    $service_items = (int)$conn->query("
+        SELECT COUNT(*) c
+        FROM requested_services rs
+        JOIN requests r ON r.id = rs.request_id
+        WHERE r.status IN ('PENDING','PAID')
+    ")->fetch_assoc()['c'];
+
+    // ✅ Weekly Requests (last 8 weeks)
+    $weekly_labels = [];
+    $weekly_counts = [];
+
+    $wkRes = $conn->query("
+        SELECT YEARWEEK(created_at, 1) AS wk, COUNT(*) AS c
+        FROM requests
+        WHERE status IN ('PENDING','PAID')
+        GROUP BY wk
+        ORDER BY wk DESC
+        LIMIT 8
+    ");
+
+    $tmp = [];
+    while($r = $wkRes->fetch_assoc()){
+        $wk = (string)$r['wk']; // ex: 202609
+        $year = substr($wk, 0, 4);
+        $week = substr($wk, 4, 2);
+        $tmp[] = [
+            'label' => "Wk {$week} {$year}",
+            'count' => (int)$r['c']
+        ];
+    }
+    $tmp = array_reverse($tmp);
+    foreach($tmp as $t){
+        $weekly_labels[] = $t['label'];
+        $weekly_counts[] = $t['count'];
+    }
+
+    // For JS
+    $chart_pie_labels = ['Certificates', 'Services'];
+    $chart_pie_data   = [$cert_items, $service_items];
 }
 ?>
 <!DOCTYPE html>
@@ -47,15 +101,15 @@ if($tab == 'dashboard') {
 <div class="wrapper">
     <!-- SIDEBAR -->
     <aside class="sidebar" id="sidebar">
-<div class="sidebar-header">
-  <div class="sidebar-brand">
-    <div class="brand-logos">
-      <img src="../assets/img/sample.png" alt="Logo 1">
-      <img src="../assets/img/sample.png" alt="Logo 2">
-    </div>
-    <div class="brand-title">T.R.A.C.S</div>
-  </div>
-</div>
+        <div class="sidebar-header">
+          <div class="sidebar-brand">
+            <div class="brand-logos">
+              <img src="../assets/img/sample.png" alt="Logo 1">
+              <img src="../assets/img/sample.png" alt="Logo 2">
+            </div>
+            <div class="brand-title">T.R.A.C.S</div>
+          </div>
+        </div>
 
         <nav class="nav flex-column">
             <a href="home.php" class="nav-link <?= $tab=='dashboard'?'active':'' ?>"><i class="fas fa-chart-pie"></i><span>Dashboard</span></a>
@@ -111,7 +165,7 @@ if($tab == 'dashboard') {
             <?php if($tab=='dashboard'): ?>
 
                 <div class="row g-4 mb-4">
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <div class="stat-card">
                             <div class="stat-info">
                                 <h3><?= (int)$pending_count ?></h3>
@@ -120,7 +174,8 @@ if($tab == 'dashboard') {
                             <div class="stat-icon"><i class="fas fa-clock"></i></div>
                         </div>
                     </div>
-                    <div class="col-md-4">
+
+                    <div class="col-md-3">
                         <div class="stat-card">
                             <div class="stat-info">
                                 <h3><?= (int)$paid_count ?></h3>
@@ -129,13 +184,24 @@ if($tab == 'dashboard') {
                             <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
                         </div>
                     </div>
-                    <div class="col-md-4">
+
+                    <div class="col-md-3">
                         <div class="stat-card">
                             <div class="stat-info">
                                 <h3><?= number_format((int)$total_faas) ?></h3>
                                 <p>Total FAAS Records</p>
                             </div>
                             <div class="stat-icon"><i class="fas fa-file-alt"></i></div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-3">
+                        <div class="stat-card">
+                            <div class="stat-info">
+                                <h3><?= number_format((int)$master_total) ?></h3>
+                                <p>Master List Records</p>
+                            </div>
+                            <div class="stat-icon"><i class="fas fa-database"></i></div>
                         </div>
                     </div>
                 </div>
@@ -145,6 +211,41 @@ if($tab == 'dashboard') {
                     <div class="card-body">
                         <h5 class="mb-1">Hello, <?= htmlspecialchars($_SESSION['fullname'] ?? 'Admin') ?> 👋</h5>
                         <p class="text-muted mb-0">You have <?= (int)$pending_count ?> pending requests.</p>
+                    </div>
+                </div>
+
+                <!-- ✅ CHARTS -->
+                <div class="row g-4 mt-2">
+                    <div class="col-lg-5">
+                        <div class="modern-card h-100">
+                            <div class="card-header">
+                                <i class="fas fa-chart-pie me-2"></i> Certificates vs Services (Pending/Paid)
+                            </div>
+                            <div class="card-body">
+                                <div style="height:320px;">
+                                    <canvas id="pieCertSvc"></canvas>
+                                </div>
+                                <small class="text-muted d-block mt-2">
+                                    Certificates: <b><?= (int)$cert_items ?></b> • Services: <b><?= (int)$service_items ?></b>
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-7">
+                        <div class="modern-card h-100">
+                            <div class="card-header">
+                                <i class="fas fa-chart-line me-2"></i> Weekly Requests (Last 8 Weeks)
+                            </div>
+                            <div class="card-body">
+                                <div style="height:320px;">
+                                    <canvas id="weeklyRequests"></canvas>
+                                </div>
+                                <small class="text-muted d-block mt-2">
+                                    Based on requests with status <b>PENDING</b> and <b>PAID</b>.
+                                </small>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -597,10 +698,6 @@ if(isset($_POST['save_faas'])){
         $data[$field] = trim($_POST[$field] ?? '');
     }
 
-    // If you want property_location to always show readable barangay name for ADD,
-    // uncomment this line:
-    // if($mode==='add') $data['property_location'] = ucwords(str_replace('_',' ', $brgy));
-
     if($mode=='add'){
         $stmt = $conn->prepare("
             INSERT INTO `$brgy`
@@ -710,7 +807,7 @@ if(isset($_POST['bulk_add_faas'])){
     $arp_no_arr          = $_POST['arp_no'] ?? [];
     $declared_owner_arr  = $_POST['declared_owner'] ?? [];
     $owner_address_arr   = $_POST['owner_address'] ?? [];
-    $row_barangay_arr    = $_POST['row_barangay'] ?? []; // ✅ per-row table destination
+    $row_barangay_arr    = $_POST['row_barangay'] ?? []; // per-row table destination
     $title_arr           = $_POST['title'] ?? [];
     $lot_arr             = $_POST['lot'] ?? [];
     $pin_no_arr          = $_POST['pin_no'] ?? [];
@@ -753,10 +850,8 @@ if(isset($_POST['bulk_add_faas'])){
             $effectivity   = trim($effectivity_arr[$i] ?? '');
             $cancellation  = trim($cancellation_arr[$i] ?? '');
 
-            // store readable location in record (Alicia, Cabugao, etc.)
             $property_location = ucwords(str_replace('_',' ', $brgy));
 
-            // insert into correct table per row
             $sqlIns = "
                 INSERT INTO `$brgy`
                 (declared_owner,owner_address,property_location,title,lot,`ARP_No.`,`PIN_No.`,classification,actual_use,area,mv,av,taxability,effectivity,cancellation)
@@ -785,7 +880,6 @@ if(isset($_POST['bulk_add_faas'])){
             $faas_id = (int)$conn->insert_id;
             $ins->close();
 
-            // log
             $owner_key = strtolower(preg_replace('/\s+/', ' ', $owner));
             $mv_f = (float)($mv !== '' ? $mv : 0);
             $av_f = (float)($av !== '' ? $av : 0);
@@ -828,6 +922,7 @@ if(isset($_POST['bulk_add_faas'])){
 }
 ?>
 
+<!-- ======= FAAS UI (same as your existing) ======= -->
 <div class="modern-card mb-4">
     <div class="card-header"><i class="fas fa-folder-tree me-2"></i> FAAS Management</div>
     <div class="card-body">
@@ -878,11 +973,7 @@ if(isset($_POST['bulk_add_faas'])){
         <i class="fas fa-layer-group me-2"></i> Bulk Add FAAS (Per Row Barangay Table)
     </div>
 
-    <div class="card-body">
-        <div class="modern-alert modern-alert-info mb-3">
-            <i class="fas fa-info-circle me-2"></i>
-            Ang “Property Location (Barangay)” ang magdedecide kung saang table isi-save ang row (Alicia → <b>alicia</b> table).
-        </div>
+    
 
         <form method="POST" id="bulkFaasForm">
             <div id="bulkRows">
@@ -1223,13 +1314,11 @@ if(isset($_POST['bulk_add_faas'])){
 <?php $stmt->close(); endif; ?>
 
             <?php elseif($tab=='certificates'):
-
                 $action = $_GET['action'] ?? '';
                 $id = $_GET['id'] ?? '';
                 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
                 if($page < 1) $page = 1;
 
-                // Delete
                 if($action=='delete' && $id){
                     $stmt = $conn->prepare("DELETE FROM certificates WHERE id=?");
                     $stmt->bind_param("i",$id);
@@ -1239,7 +1328,6 @@ if(isset($_POST['bulk_add_faas'])){
                     exit();
                 }
 
-                // Add/Edit
                 if(isset($_POST['save_certificate'])){
                     $name = $_POST['certificate_name'] ?? '';
                     $description = $_POST['description'] ?? '';
@@ -1264,7 +1352,6 @@ if(isset($_POST['bulk_add_faas'])){
                     exit();
                 }
 
-                // Fetch edit row
                 $edit_row = [];
                 if($action=='edit' && $id){
                     $stmt = $conn->prepare("SELECT * FROM certificates WHERE id=?");
@@ -1274,7 +1361,6 @@ if(isset($_POST['bulk_add_faas'])){
                     $stmt->close();
                 }
 
-                // Pagination
                 $limit = 15;
                 $offset = ($page - 1) * $limit;
                 $count = $conn->query("SELECT COUNT(*) as total FROM certificates");
@@ -1821,9 +1907,63 @@ if(isset($_POST['bulk_add_faas'])){
 <script src="../assets/js/datatables.min.js" defer></script>
 <script src="../assets/js/bootstrap.bundle.min.js" defer></script>
 
-<!-- Optional: If you already have admin.js handling confirm + bulk rows, keep it.
-     If not, tell me and I’ll drop a CSP-safe external admin.js file version. -->
-<!-- <script src="../assets/js/admin.js" defer></script> -->
+<!-- ✅ Chart.js (NO defer para safe) -->
+<script src="../vendor/chart.js/chart.umd.min.js"></script>
+
+<?php if($tab==='dashboard'): ?>
+<script>
+(function(){
+    // PIE
+    const pieEl = document.getElementById('pieCertSvc');
+    if (pieEl) {
+        const pieLabels = <?= json_encode($chart_pie_labels ?? []) ?>;
+        const pieData   = <?= json_encode($chart_pie_data ?? []) ?>;
+
+        new Chart(pieEl, {
+            type: 'pie',
+            data: {
+                labels: pieLabels,
+                datasets: [{ data: pieData }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom' } }
+            }
+        });
+    }
+
+    // WEEKLY LINE
+    const wkEl = document.getElementById('weeklyRequests');
+    if (wkEl) {
+        const labels = <?= json_encode($weekly_labels ?? []) ?>;
+        const counts = <?= json_encode($weekly_counts ?? []) ?>;
+
+        new Chart(wkEl, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Requests',
+                    data: counts,
+                    tension: 0.35,
+                    fill: false
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { beginAtZero: true, ticks: { precision: 0 } }
+                },
+                plugins: { legend: { display: true } }
+            }
+        });
+    }
+})();
+</script>
+<?php endif; ?>
+<script src="../assets/js/admin.js" defer></script>
 
 </body>
 </html>

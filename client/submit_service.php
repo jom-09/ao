@@ -39,6 +39,8 @@ $_SESSION['svc_cart'] = [
     'ids' => array_column($items, 'id'),
     'total' => $total
 ];
+
+unset($_SESSION['qr_items'], $_SESSION['qr_cert_labels'], $_SESSION['qr_prefill_cert_ids'], $_SESSION['qr_prefill_service_ids']);
 ?>
 <!DOCTYPE html>
 <html lang="en">

@@ -206,6 +206,8 @@ try {
 } finally {
     if ($conn) $conn->close();
 }
+
+unset($_SESSION['qr_items'], $_SESSION['qr_cert_labels'], $_SESSION['qr_prefill_cert_ids']);
 ?>
 <!DOCTYPE html>
 <html lang="en">

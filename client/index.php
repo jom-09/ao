@@ -73,8 +73,13 @@ if (isset($_GET['success'])) $success = htmlspecialchars($_GET['success']);
                 </div>
             <?php endif; ?>
 
+                <a href="scan.php" class="btn btn-outline-primary w-100 mb-3">
+                    <i class="bi bi-qr-code-scan me-2"></i>Scan Appointment QR
+                </a>
+
             <!-- ✅ IMPORTANT: route_service.php ang target -->
             <form action="route_service.php" method="POST" id="clientForm" novalidate>
+                
 
                 <!-- Name -->
                 <div class="row g-3">

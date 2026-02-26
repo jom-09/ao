@@ -2,256 +2,226 @@
 session_start();
 require_once "../config/database.php";
 
-/* ===============================
-   ERROR MESSAGE (from redirects)
-================================== */
-$error = '';
-if (isset($_GET['error'])) $error = htmlspecialchars($_GET['error']);
-
-/* ===============================
-   GUARDS (strict flow)
-================================== */
 if (!isset($_SESSION['client_info']) || !is_array($_SESSION['client_info'])) {
-    header("Location: index.php?error=Session+expired.+Please+try+again.");
-    exit();
+  header("Location: index.php?error=Session+expired.+Please+try+again.");
+  exit();
 }
 
-$service = $_SESSION['selected_service'] ?? '';
-if ($service !== 'cert') {
-    header("Location: index.php?error=Invalid+flow.");
-    exit();
+if (($_SESSION['selected_service'] ?? '') !== 'cert') {
+  header("Location: index.php?error=Invalid+flow.");
+  exit();
+}
+
+function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
+
+/* ===============================
+   1) ALIAS MAPPING (Appointment → Office)
+   Left side MUST match certificates.certificate_name in office DB
+================================== */
+$CERT_ALIAS_MAP = [
+  'Certificate of Actual Location' => [
+    'Actual Location',
+    'Certificate of Actual Location',
+  ],
+
+  'Issuance of True Copy of Tax Declaration' => [
+    'Tax Declaration',
+    'Tax Declaration (Authorized Personnel)',
+    'Tax Declaration (Bought)',
+    'Tax Declaration (Donation)',
+    'Tax Declaration (Own)',
+    'Issuance of True Copy of Tax Declaration',
+  ],
+
+  'No Improvement Certification' => [
+    'No Improvement',
+    'No Improvement Certification',
+  ],
+
+  'With Improvement' => [
+    'With Improvement',
+    'With Improvement Certification',
+  ],
+
+  'Annotation or Cancellation of Improvements' => [
+    'Annotation or Cancellation of Improvement',
+    'Annotation or Cancellation of Improvements',
+    'Annotation / Cancellation of Improvement',
+    'Annotation or Cancellation of Improvement(s)',
+  ],
+];
+
+/* ===============================
+   2) Helper normalize (for smart matching)
+================================== */
+function norm($s){
+  $s = mb_strtolower(trim((string)$s));
+  $s = preg_replace('/[^\p{L}\p{N}\s]+/u', ' ', $s); // remove punctuation
+  $s = preg_replace('/\s+/', ' ', $s);
+  return trim($s);
 }
 
 /* ===============================
-   CLIENT DATA (from session)
+   3) Convert QR labels to office certificate_name list
 ================================== */
-$client = $_SESSION['client_info'];
+$qrLabels = $_SESSION['qr_cert_labels'] ?? [];
+$qrLabels = is_array($qrLabels) ? $qrLabels : [];
 
-$firstname  = trim($client['firstname'] ?? '');
-$middlename = trim($client['middlename'] ?? '');
-$lastname   = trim($client['lastname'] ?? '');
-$address    = trim($client['address'] ?? '');
-$cp_no      = trim($client['cp_no'] ?? '');
+$officeNamesWanted = []; // certificate_name values we want to auto-check
 
-if ($firstname === '' || $lastname === '' || $address === '' || $cp_no === '') {
-    header("Location: index.php?error=Please+fill+all+required+fields");
-    exit();
-}
+if (!empty($qrLabels)) {
+  // Build reverse lookup: normalized alias -> office cert name
+  $aliasToOffice = [];
 
-// Validate cp_no (PH formats)
-if (!preg_match('/^(09\d{9}|\+63\d{10})$/', $cp_no)) {
-    header("Location: index.php?error=Invalid+contact+number");
-    exit();
-}
-
-/* ===============================
-   DISPLAY LABEL
-================================== */
-$purposeDisplay = "Certification Issuance";
-
-/* ===============================
-   FETCH ACTIVE CERTIFICATES
-================================== */
-$certificates = [];
-$sql = "SELECT id, certificate_name, description, price
-        FROM certificates
-        WHERE status='active'
-        ORDER BY certificate_name ASC";
-$result = $conn->query($sql);
-
-if ($result && $result->num_rows > 0) {
-    while ($row = $result->fetch_assoc()) {
-        $certificates[] = $row;
+  foreach ($CERT_ALIAS_MAP as $officeName => $aliases) {
+    foreach ($aliases as $a) {
+      $aliasToOffice[norm($a)] = $officeName;
     }
+    // also allow officeName itself as alias
+    $aliasToOffice[norm($officeName)] = $officeName;
+  }
+
+  foreach ($qrLabels as $lbl) {
+    $n = norm($lbl);
+
+    // Direct alias hit
+    if (isset($aliasToOffice[$n])) {
+      $officeNamesWanted[] = $aliasToOffice[$n];
+      continue;
+    }
+
+    // Smart contains match (fallback)
+    foreach ($aliasToOffice as $aliasNorm => $officeName) {
+      if ($aliasNorm !== '' && (str_contains($n, $aliasNorm) || str_contains($aliasNorm, $n))) {
+        $officeNamesWanted[] = $officeName;
+        break;
+      }
+    }
+  }
+
+  $officeNamesWanted = array_values(array_unique($officeNamesWanted));
 }
+
+/* ===============================
+   4) Fetch active certificates
+================================== */
+$certs = [];
+$res = $conn->query("SELECT id, certificate_name, price FROM certificates WHERE status='active' ORDER BY certificate_name ASC");
+while ($row = $res->fetch_assoc()) $certs[] = $row;
+
+/* ===============================
+   5) Resolve wanted office names to IDs
+================================== */
+$prefillIds = [];
+if (!empty($officeNamesWanted)) {
+  $placeholders = implode(',', array_fill(0, count($officeNamesWanted), '?'));
+  $sql = "SELECT id FROM certificates WHERE certificate_name IN ($placeholders) AND status='active'";
+  $stmt = $conn->prepare($sql);
+  if ($stmt) {
+    $types = str_repeat('s', count($officeNamesWanted));
+    $stmt->bind_param($types, ...$officeNamesWanted);
+    $stmt->execute();
+    $stmt->bind_result($cid);
+    while ($stmt->fetch()) $prefillIds[] = (int)$cid;
+    $stmt->close();
+  }
+}
+
+$_SESSION['qr_prefill_cert_ids'] = $prefillIds;
+
+// UI vars
+$fromQr = isset($_GET['from']) && $_GET['from'] === 'qr';
+$error = '';
+if (isset($_GET['error'])) $error = h($_GET['error']);
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Select Certificates | Certificate System</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="UTF-8">
+  <title>Select Certificates</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    <!-- Framework CSS -->
-    <link rel="stylesheet" href="../assets/bootstrap/css/bootstrap.min.css">
-    <link rel="stylesheet" href="../assets/bootstrap/css/datatables.min.css">
-    <link href="../assets/bootstrap/css/style.css" rel="stylesheet">
-
-    <!-- Bootstrap Icons -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+  <link rel="stylesheet" href="../assets/bootstrap/css/bootstrap.min.css">
+  <link href="../assets/bootstrap/css/style.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
 </head>
-<body>
+<body class="bg-light">
 
-<div class="cert-wrapper">
+<div class="container py-5">
+  <div class="row justify-content-center">
+    <div class="col-lg-8">
 
-    <!-- Progress Steps -->
-    <div class="progress-container">
-        <div class="progress-step completed" data-step="1">
-            <div class="step-circle"><i class="bi bi-check-lg"></i></div>
-            <span class="step-label">Info</span>
+      <div class="card shadow-sm border-0">
+        <div class="card-body p-4">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <div>
+              <h4 class="mb-0">Select Certificates</h4>
+              <div class="text-muted small">Choose certificate(s) to request.</div>
+            </div>
+            <a href="<?= $fromQr ? 'scan.php' : 'index.php' ?>" class="btn btn-outline-secondary btn-sm">
+              <i class="bi bi-arrow-left"></i> Back
+            </a>
+          </div>
+
+          <?php if($error): ?>
+            <div class="alert alert-danger small"><?= $error ?></div>
+          <?php endif; ?>
+
+          <?php if($fromQr): ?>
+            <div class="alert alert-info small">
+              <i class="bi bi-qr-code-scan me-1"></i>
+              Certificates were pre-selected from the scanned QR. You can still adjust them.
+            </div>
+          <?php endif; ?>
+
+          <div class="mb-3 small">
+            <div><strong>Client:</strong> <?= h($_SESSION['client_info']['firstname'].' '.$_SESSION['client_info']['lastname']) ?></div>
+            <div><strong>Contact:</strong> <?= h($_SESSION['client_info']['cp_no']) ?></div>
+          </div>
+
+          <form method="POST" action="submit_request.php" id="certForm">
+            <div class="list-group mb-3">
+              <?php foreach ($certs as $c): ?>
+                <?php
+                  $cid = (int)$c['id'];
+                  $checked = in_array($cid, $prefillIds, true);
+                ?>
+                <label class="list-group-item d-flex justify-content-between align-items-center">
+                  <div class="form-check m-0">
+                    <input class="form-check-input me-2" type="checkbox"
+                           name="certificates[]" value="<?= $cid ?>" <?= $checked ? 'checked' : '' ?>>
+                    <span class="fw-semibold"><?= h($c['certificate_name']) ?></span>
+                    <div class="text-muted small">₱<?= number_format((float)$c['price'], 2) ?></div>
+                  </div>
+                  <?php if($checked): ?>
+                    <span class="badge bg-primary">From QR</span>
+                  <?php endif; ?>
+                </label>
+              <?php endforeach; ?>
+            </div>
+
+            <div class="d-flex justify-content-between">
+              <a href="<?= $fromQr ? 'scan.php' : 'index.php' ?>" class="btn btn-outline-secondary">Back</a>
+              <button type="submit" class="btn btn-primary">
+                Continue <i class="bi bi-arrow-right ms-1"></i>
+              </button>
+            </div>
+          </form>
+
+          <?php if($fromQr && empty($prefillIds) && !empty($qrLabels)): ?>
+            <div class="alert alert-warning small mt-3 mb-0">
+              <strong>Heads up:</strong> Walang na-match na certificate from QR.
+              Please select manually.
+            </div>
+          <?php endif; ?>
+
         </div>
-        <div class="progress-line active"></div>
-        <div class="progress-step active" data-step="2">
-            <div class="step-circle">2</div>
-            <span class="step-label">Certificates</span>
-        </div>
-        <div class="progress-line"></div>
-        <div class="progress-step" data-step="3">
-            <div class="step-circle">3</div>
-            <span class="step-label">Confirm</span>
-        </div>
+      </div>
+
     </div>
-
-    <div class="cert-card card shadow-lg border-0">
-        <div class="card-body p-4 p-md-5">
-
-            <!-- ✅ ERROR ALERT -->
-            <?php if($error): ?>
-                <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                    <i class="bi bi-exclamation-triangle me-2"></i><?php echo $error; ?>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
-            <?php endif; ?>
-
-            <!-- Header -->
-            <div class="text-center mb-4">
-                <div class="brand-icon mb-3">
-                    <i class="bi bi-patch-check fs-1"></i>
-                </div>
-                <h4 class="fw-bold mb-1">Select Certificates</h4>
-                <p class="text-muted small">Choose the certificates you need</p>
-            </div>
-
-            <!-- Client Summary -->
-            <div class="client-summary card bg-primary-subtle border-0 mb-4">
-                <div class="card-body py-3 px-4">
-                    <div class="d-flex align-items-center gap-3">
-                        <div class="avatar-circle">
-                            <i class="bi bi-person"></i>
-                        </div>
-                        <div class="flex-grow-1">
-                            <h6 class="mb-0 fw-semibold">
-                                <?php echo htmlspecialchars($firstname . ' ' . $lastname); ?>
-                            </h6>
-                            <small class="text-muted d-block">
-                                <i class="bi bi-geo-alt me-1"></i>
-                                <?php echo htmlspecialchars($address); ?>
-                            </small>
-                            <small class="text-muted d-block mt-1">
-                                <i class="bi bi-telephone me-1"></i>
-                                <?php echo htmlspecialchars($cp_no); ?>
-                            </small>
-                        </div>
-                        <div class="text-end">
-                            <small class="d-block text-muted">Transaction</small>
-                            <span class="badge bg-primary"><?php echo htmlspecialchars($purposeDisplay); ?></span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Certificate Selection -->
-            <form action="submit_request.php" method="POST" id="certForm">
-
-                <!-- Search -->
-                <div class="cert-controls mb-4">
-                    <div class="input-group">
-                        <span class="input-group-text bg-white border-end-0">
-                            <i class="bi bi-search text-muted"></i>
-                        </span>
-                        <input type="text" class="form-control border-start-0" id="certSearch"
-                               placeholder="Search certificates...">
-                    </div>
-
-                    <div class="filter-chips mt-3">
-                        <button type="button" class="filter-chip active" data-filter="all">All</button>
-                    </div>
-                </div>
-
-                <!-- Certificate Grid -->
-                <div class="cert-grid" id="certGrid">
-                    <?php if (empty($certificates)): ?>
-                        <div class="col-12 text-center py-5">
-                            <i class="bi bi-inbox fs-1 text-muted"></i>
-                            <p class="text-muted mt-2">No certificates available at the moment.</p>
-                        </div>
-                    <?php else: ?>
-                        <?php foreach ($certificates as $cert): ?>
-                            <?php
-                                $certName = (string)$cert['certificate_name'];
-                                $dataName = strtolower($certName);
-                            ?>
-                            <label class="cert-item" data-name="<?php echo htmlspecialchars($dataName); ?>">
-                                <!-- ✅ FIX: hidden but still submittable -->
-                                <input type="checkbox"
-                                    name="certificates[]"
-                                    value="<?php echo (int)$cert['id']; ?>"
-                                    class="cert-checkbox visually-hidden"
-                                    data-price="<?php echo (float)$cert['price']; ?>">
-
-                                <div class="cert-card-inner">
-                                    <div class="cert-badge">
-                                        <i class="bi bi-star-fill"></i>
-                                    </div>
-                                    <div class="cert-icon">
-                                        <i class="bi bi-file-earmark-check"></i>
-                                    </div>
-                                    <h6 class="cert-title"><?php echo htmlspecialchars($certName); ?></h6>
-                                    <p class="cert-desc"><?php echo htmlspecialchars($cert['description'] ?? ''); ?></p>
-                                    <div class="cert-price">₱<?php echo number_format((float)$cert['price'], 2); ?></div>
-                                    <div class="cert-check">
-                                        <i class="bi bi-check-circle-fill"></i>
-                                    </div>
-                                </div>
-                            </label>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
-                </div>
-
-                <!-- Total & Actions -->
-                <div class="cert-summary mt-4 pt-3 border-top">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <span class="text-muted">Selected:</span>
-                        <span class="fw-semibold" id="selectedCount">0 items</span>
-                    </div>
-                    <div class="d-flex justify-content-between align-items-center mb-4">
-                        <span class="fs-5 fw-bold">Total Amount:</span>
-                        <span class="fs-4 fw-bold text-primary" id="totalAmount">₱0.00</span>
-                    </div>
-
-                    <div class="d-flex gap-3 justify-content-between">
-                        <a href="index.php" class="btn btn-outline-secondary px-4">
-                            <i class="bi bi-arrow-left me-1"></i>Back
-                        </a>
-
-                        <!-- ✅ disabled by default; JS will enable -->
-                        <button type="submit" class="btn btn-submit" id="submitBtn" disabled>
-                            <span class="btn-text">Continue <i class="bi bi-arrow-right ms-1"></i></span>
-                            <span class="btn-loading d-none">
-                                <span class="spinner-border spinner-border-sm me-2" role="status"></span>
-                                Processing...
-                            </span>
-                        </button>
-                    </div>
-                </div>
-            </form>
-
-            <div class="help-section mt-4 pt-3 border-top">
-                <small class="text-muted d-flex align-items-center">
-                    <i class="bi bi-info-circle me-2"></i>
-                    Select one or more certificates. You can change your selection on the next page.
-                </small>
-            </div>
-
-        </div>
-        <div class="card-footer-custom"></div>
-    </div>
-
-    <div class="bg-decoration"></div>
+  </div>
 </div>
 
-<script src="../assets/js/bootstrap.bundle.min.js" defer></script>
-<script src="../assets/js/select_cert.js" defer></script>
-
+<script src="../assets/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

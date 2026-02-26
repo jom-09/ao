@@ -2,7 +2,9 @@
 ob_start();
 require_once "../includes/auth_check.php";
 require_once "../config/database.php";
+
 $_POST['mode'] = $_POST['mode'] ?? '';
+
 // FAAS allowed barangay tables
 $allowed_tables = [
     'alicia','cabugao','dagupan','diodol','dumabel','dungo',
@@ -13,85 +15,20 @@ $allowed_tables = [
     'villa_pagaduan','villa_santiago','villa_ventura'
 ];
 
-// Handle Admin Actions
-if(isset($_GET['prepare'])){
-    $req_id = intval($_GET['prepare']);
-    $stmt = $conn->prepare("UPDATE requests SET status='PREPARED' WHERE id=? AND status='PAID'");
-    $stmt->bind_param("i",$req_id);
-    $stmt->execute();
-    $stmt->close();
-    header("Location: home.php?tab=requests");
-    exit();
-}
-if(isset($_GET['release'])){
-    $req_id = intval($_GET['release']);
-    $stmt = $conn->prepare("UPDATE requests SET status='RELEASED' WHERE id=? AND status='PREPARED'");
-    $stmt->bind_param("i",$req_id);
-    $stmt->execute();
-    $stmt->close();
-    header("Location: home.php?tab=requests");
-    exit();
-}
-
-// ✅ Accept Services (Admin only): PAID -> RELEASED
-if(isset($_GET['accept_service'])){
-    $req_id = intval($_GET['accept_service']);
-    $stmt = $conn->prepare("
-        UPDATE requests 
-        SET status='RELEASED'
-        WHERE id=? AND status='PAID'
-    ");
-    $stmt->bind_param("i",$req_id);
-    $stmt->execute();
-    $stmt->close();
-    header("Location: home.php?tab=requests");
-    exit();
-}
-
 $tab = $_GET['tab'] ?? 'dashboard';
 
-// Get counts for dashboard
+/* ===============================
+   DASHBOARD COUNTS (PENDING + PAID only)
+================================== */
 if($tab == 'dashboard') {
-    $pending_count  = $conn->query("SELECT COUNT(*) as count FROM requests WHERE status='PENDING'")->fetch_assoc()['count'];
-    $paid_count     = $conn->query("SELECT COUNT(*) as count FROM requests WHERE status='PAID'")->fetch_assoc()['count'];
-    $prepared_count = $conn->query("SELECT COUNT(*) as count FROM requests WHERE status='PREPARED'")->fetch_assoc()['count'];
-    $released_count = $conn->query("SELECT COUNT(*) as count FROM requests WHERE status='RELEASED'")->fetch_assoc()['count'];
+    $pending_count  = (int)$conn->query("SELECT COUNT(*) as count FROM requests WHERE status='PENDING'")->fetch_assoc()['count'];
+    $paid_count     = (int)$conn->query("SELECT COUNT(*) as count FROM requests WHERE status='PAID'")->fetch_assoc()['count'];
+
     $total_faas = 0;
     foreach($allowed_tables as $table) {
-        $count = $conn->query("SELECT COUNT(*) as count FROM `$table`")->fetch_assoc()['count'];
+        $count = (int)$conn->query("SELECT COUNT(*) as count FROM `$table`")->fetch_assoc()['count'];
         $total_faas += $count;
     }
-}
-
-//status update
-if(isset($_GET['prepare'])){
-    $id = intval($_GET['prepare']);
-
-    $stmt = $conn->prepare("
-        UPDATE requests 
-        SET status='PREPARED'
-        WHERE id=? AND status='PAID'
-    ");
-    $stmt->bind_param("i",$id);
-    $stmt->execute();
-
-    header("Location: home.php?tab=requests");
-    exit();
-}
-
-if(isset($_GET['release'])){
-    $id = intval($_GET['release']);
-
-    $stmt = $conn->prepare("
-        UPDATE requests 
-        SET status='RELEASED'
-        WHERE id=? AND status='PROCESSED'
-    ");
-    $stmt->bind_param("i",$id);
-    $stmt->execute();
-
-    header("Location: home.php?tab=requests");
-    exit();
 }
 ?>
 <!DOCTYPE html>
@@ -139,19 +76,19 @@ if(isset($_GET['release'])){
                     <i class="fas fa-bars"></i>
                 </button>
                 <?php
-$pageTitles = [
-    'dashboard' => 'Dashboard',
-    'requests' => 'Requests',
-    'history' => 'Transaction History',
-    'import' => 'Import Data',
-    'find' => 'Find Record',
-    'faas' => 'FAAS Management',
-    'certificates' => 'Certificates',
-    'services' => 'Services',
-    'notice_assessment' => 'Notice of Assessment',
-];
-?>
-<span class="page-title"><?= $pageTitles[$tab] ?? ucfirst(str_replace('_',' ',$tab)) ?></span>
+                $pageTitles = [
+                    'dashboard' => 'Dashboard',
+                    'requests' => 'Requests',
+                    'history' => 'Transaction History',
+                    'import' => 'Import Data',
+                    'find' => 'Find Record',
+                    'faas' => 'FAAS Management',
+                    'certificates' => 'Certificates',
+                    'services' => 'Services',
+                    'notice_assessment' => 'Notice of Assessment',
+                ];
+                ?>
+                <span class="page-title"><?= $pageTitles[$tab] ?? ucfirst(str_replace('_',' ',$tab)) ?></span>
             </div>
 
             <div class="user-profile-pill">
@@ -175,7 +112,7 @@ $pageTitles = [
                     </div>
                     <div class="col-md-4">
                         <div class="stat-card">
-                            <div class="stat-info"><h3><?= $paid_count + $prepared_count + $released_count ?></h3><p>Processed Requests</p></div>
+                            <div class="stat-info"><h3><?= $paid_count ?></h3><p>Paid Requests</p></div>
                             <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
                         </div>
                     </div>
@@ -191,154 +128,100 @@ $pageTitles = [
                     <div class="card-header"><i class="fas fa-chart-line me-2"></i> Welcome Back!</div>
                     <div class="card-body">
                         <h5>Hello, <?= htmlspecialchars($_SESSION['fullname']) ?> 👋</h5>
-                        <p class="text-muted">You have <?= $pending_count ?> pending requests that need attention.</p>
+                        <p class="text-muted">You have <?= $pending_count ?> pending requests.</p>
                     </div>
                 </div>
 
             <?php elseif($tab=='requests'): ?>
 
-                <!-- REQUESTS -->
-                <div class="modern-card">
-                    <div class="card-header"><i class="fas fa-clipboard-list me-2"></i> All Requests</div>
-                    <div class="card-body">
-                        <div class="table-responsive">
-                            <table class="modern-table">
-                                <thead>
-                                    <tr>
-                                        <th>ID</th><th>Client</th><th>Purpose</th><th>Certificates</th>
-                                        <th>Total</th><th>Control No</th><th>Status</th><th>Action</th><th>Date</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                <?php
-$sql = "
-    SELECT 
-        r.id,
-        CONCAT(c.firstname,' ',c.middlename,' ',c.lastname) AS fullname,
-        c.purpose,
-        r.total_amount,
-        r.control_number,
-        r.status,
-        r.created_at,
+<!-- REQUESTS -->
+<div class="modern-card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="fas fa-clipboard-list me-2"></i> Requests (Pending & Paid)</span>
 
-        -- certificate list
-        (
-            SELECT GROUP_CONCAT(cert.certificate_name SEPARATOR ', ')
-            FROM request_items ri
-            JOIN certificates cert ON cert.id = ri.certificate_id
-            WHERE ri.request_id = r.id
-        ) AS certificate_list,
+        <!-- ✅ PROCESS BUTTON ON TOP (NOT PER ROW) -->
+        <a href="process_certificate.php"
+           class="modern-btn modern-btn-warning modern-btn-sm">
+            <i class="fas fa-cogs me-1"></i> Process
+        </a>
+    </div>
 
-        -- service list
-        (
-            SELECT GROUP_CONCAT(s.service_name SEPARATOR ', ')
-            FROM requested_services rs
-            JOIN services s ON s.id = rs.service_id
-            WHERE rs.request_id = r.id
-        ) AS service_list,
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="modern-table">
+                <thead>
+                    <tr>
+                        <th>ID</th><th>Client</th><th>Purpose</th><th>Certificates/Services</th>
+                        <th>Total</th><th>Control No</th><th>Status</th><th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                <?php
+                $sql = "
+                    SELECT 
+                        r.id,
+                        CONCAT(c.firstname,' ',c.middlename,' ',c.lastname) AS fullname,
+                        c.purpose,
+                        r.total_amount,
+                        r.control_number,
+                        r.status,
+                        r.created_at,
 
-        -- counts (for detection)
-        (
-            SELECT COUNT(*)
-            FROM request_items ri
-            WHERE ri.request_id = r.id
-        ) AS cert_count,
+                        (
+                            SELECT GROUP_CONCAT(cert.certificate_name SEPARATOR ', ')
+                            FROM request_items ri
+                            JOIN certificates cert ON cert.id = ri.certificate_id
+                            WHERE ri.request_id = r.id
+                        ) AS certificate_list,
 
-        (
-            SELECT COUNT(*)
-            FROM requested_services rs
-            WHERE rs.request_id = r.id
-        ) AS service_count
+                        (
+                            SELECT GROUP_CONCAT(s.service_name SEPARATOR ', ')
+                            FROM requested_services rs
+                            JOIN services s ON s.id = rs.service_id
+                            WHERE rs.request_id = r.id
+                        ) AS service_list,
 
-    FROM requests r
-    JOIN clients c ON r.client_id = c.id
-    ORDER BY r.created_at DESC
-";
-$result = $conn->query($sql);
+                        (SELECT COUNT(*) FROM request_items ri WHERE ri.request_id = r.id) AS cert_count,
+                        (SELECT COUNT(*) FROM requested_services rs WHERE rs.request_id = r.id) AS service_count
 
-while($row = $result->fetch_assoc()):
-    $certCount    = (int)$row['cert_count'];
-    $serviceCount = (int)$row['service_count'];
+                    FROM requests r
+                    JOIN clients c ON r.client_id = c.id
+                    WHERE r.status IN ('PENDING','PAID')
+                    ORDER BY r.created_at DESC
+                ";
+                $result = $conn->query($sql);
 
-    // ✅ what to show in "Certificates" column
-    $items = "-";
-    if ($certCount > 0 && !empty($row['certificate_list'])) {
-        $items = $row['certificate_list'];
-    } elseif ($serviceCount > 0 && !empty($row['service_list'])) {
-        $items = $row['service_list'];
-    }
+                while($row = $result->fetch_assoc()):
+                    $certCount    = (int)$row['cert_count'];
+                    $serviceCount = (int)$row['service_count'];
 
-    // ✅ determine type for buttons
-    $isServices = ($serviceCount > 0);
-?>
-<tr>
-    <td>#<?= (int)$row['id'] ?></td>
-    <td><?= htmlspecialchars($row['fullname']) ?></td>
-
-    <!-- Purpose (keep your original purpose text) -->
-    <td><?= htmlspecialchars($row['purpose']) ?></td>
-
-    <!-- ✅ FIX: Certificates column now shows certificate/service requested -->
-    <td><?= htmlspecialchars($items) ?></td>
-
-    <td><strong>₱<?= number_format((float)$row['total_amount'], 2) ?></strong></td>
-    <td><?= htmlspecialchars($row['control_number']) ?></td>
-    <td>
-        <span class="status-badge <?= strtolower($row['status']) ?>">
-            <?= htmlspecialchars($row['status']) ?>
-        </span>
-    </td>
-
-    <td>
-        <?php if($row['status'] == 'PAID'): ?>
-
-            <?php if($isServices): ?>
-                <!-- SERVICES: Accept only (PAID -> RELEASED) -->
-                <a href="home.php?tab=requests&accept_service=<?= (int)$row['id']; ?>"
-                   class="modern-btn modern-btn-success modern-btn-sm"
-                   onclick="return confirm('Accept this service request? This will mark it as RELEASED.');">
-                    <i class="fas fa-check-circle me-1"></i> Accept
-                </a>
-            <?php else: ?>
-                <!-- CERTIFICATES: PREPARE -->
-                <a href="home.php?prepare=<?= (int)$row['id']; ?>"
-                   class="modern-btn modern-btn-info modern-btn-sm">
-                    <i class="fas fa-check-circle me-1"></i> Prepare
-                </a>
-            <?php endif; ?>
-
-        <?php elseif($row['status'] == 'PREPARED'): ?>
-
-            <?php if($isServices): ?>
-                <span class="badge bg-secondary">No Action</span>
-            <?php else: ?>
-                <!-- CERTIFICATES: PROCESS -->
-                <a href="process_certificate.php?request_id=<?= (int)$row['id']; ?>"
-                   class="modern-btn modern-btn-warning modern-btn-sm">
-                    <i class="fas fa-cogs me-1"></i> Process
-                </a>
-            <?php endif; ?>
-
-        <?php elseif($row['status'] == 'PROCESSED'): ?>
-
-            <?php if($isServices): ?>
-                <span class="badge bg-secondary">No Action</span>
-            <?php else: ?>
-                <!-- CERTIFICATES: RELEASE -->
-                <a href="home.php?release=<?= (int)$row['id']; ?>"
-                   class="modern-btn modern-btn-primary modern-btn-sm">
-                    <i class="fas fa-check-double me-1"></i> Released
-                </a>
-            <?php endif; ?>
-
-        <?php else: ?>
-            <span class="badge bg-secondary">No Action</span>
-        <?php endif; ?>
-    </td>
-
-    <td><?= date('M d, Y', strtotime($row['created_at'])) ?></td>
-</tr>
-<?php endwhile; ?>
+                    $items = "-";
+                    if ($certCount > 0 && !empty($row['certificate_list'])) {
+                        $items = $row['certificate_list'];
+                    } elseif ($serviceCount > 0 && !empty($row['service_list'])) {
+                        $items = $row['service_list'];
+                    }
+                ?>
+                <tr>
+                    <td>#<?= (int)$row['id'] ?></td>
+                    <td><?= htmlspecialchars($row['fullname']) ?></td>
+                    <td><?= htmlspecialchars($row['purpose']) ?></td>
+                    <td><?= htmlspecialchars($items) ?></td>
+                    <td><strong>₱<?= number_format((float)$row['total_amount'], 2) ?></strong></td>
+                    <td><?= htmlspecialchars($row['control_number']) ?></td>
+                    <td>
+                        <span class="status-badge <?= strtolower($row['status']) ?>">
+                            <?= htmlspecialchars($row['status']) ?>
+                        </span>
+                    </td>
+                    <td><?= date('M d, Y', strtotime($row['created_at'])) ?></td>
+                </tr>
+                <?php endwhile; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
 
             <?php elseif($tab=='history'): ?>
 
@@ -356,10 +239,11 @@ while($row = $result->fetch_assoc()):
                                 </thead>
                                 <tbody>
                                 <?php
+                                // ✅ history shows PAID only (since only Pending/Paid exist)
                                 $sql2 = "SELECT r.id, CONCAT(c.firstname,' ',c.middlename,' ',c.lastname) AS fullname, c.purpose, r.total_amount, r.control_number, r.status, r.created_at
                                         FROM requests r
                                         JOIN clients c ON r.client_id=c.id
-                                        WHERE r.status IN('PAID','DECLINED','PREPARED','RELEASED')
+                                        WHERE r.status='PAID'
                                         ORDER BY r.created_at DESC";
                                 $res2 = $conn->query($sql2);
                                 while($row = $res2->fetch_assoc()):
@@ -372,18 +256,18 @@ while($row = $result->fetch_assoc()):
                                     while($c = $cert_res->fetch_assoc()) $certs[] = $c['certificate_name'];
                                 ?>
                                 <tr>
-                                    <td>#<?= $row['id'] ?></td>
+                                    <td>#<?= (int)$row['id'] ?></td>
                                     <td><?= htmlspecialchars($row['fullname']) ?></td>
                                     <td><?= htmlspecialchars($row['purpose']) ?></td>
                                     <td><?= htmlspecialchars(implode(", ", $certs)) ?></td>
-                                    <td><strong>₱<?= number_format($row['total_amount'],2) ?></strong></td>
+                                    <td><strong>₱<?= number_format((float)$row['total_amount'],2) ?></strong></td>
                                     <td><?= htmlspecialchars($row['control_number']) ?></td>
                                     <td>
                                         <?php
                                         $status = $row['status'];
-                                        $status_class = in_array($status,['PENDING','PAID','DECLINED','PREPARED','RELEASED']) ? strtolower($status) : '';
+                                        $status_class = in_array($status,['PENDING','PAID']) ? strtolower($status) : '';
                                         ?>
-                                        <span class="status-badge <?= $status_class ?>"><?= $status ?></span>
+                                        <span class="status-badge <?= $status_class ?>"><?= htmlspecialchars($status) ?></span>
                                     </td>
                                     <td><?= date('M d, Y', strtotime($row['created_at'])) ?></td>
                                 </tr>
@@ -1769,8 +1653,6 @@ if(isset($_POST['bulk_add_faas'])){
         $params[] = $search;
     }
 
-    // ✅ GROUP PER OWNER across barangays (THIS WEEK ONLY)
-    // ✅ RAW ROWS (NO GROUP_CONCAT, NO SUM) - we will group in PHP to make separate tables
 $sql = "
     SELECT
         id,
@@ -1850,11 +1732,10 @@ $rows = $stmt->get_result();
             $owner_address = '';
             $owner_count = 0;
 
-            // helper to close previous table
             function closeOwnerTable(&$owner_count){
                 if($owner_count > 0){
-                    echo '</tbody></table></div>'; // table-responsive end
-                    echo '</div></div>'; // card-body & modern-card end
+                    echo '</tbody></table></div>';
+                    echo '</div></div>';
                 }
                 $owner_count = 0;
             }
@@ -1863,10 +1744,8 @@ $rows = $stmt->get_result();
             <?php while($r = $rows->fetch_assoc()): ?>
 
                 <?php
-                // New owner group => close previous + open new table/card
                 if($current_owner_key !== $r['owner_key']){
 
-                    // close previous table if any
                     if($current_owner_key !== null){
                         closeOwnerTable($owner_count);
                     }
@@ -1874,8 +1753,6 @@ $rows = $stmt->get_result();
                     $current_owner_key = $r['owner_key'];
                     $owner_name = $r['declared_owner'] ?? '';
                     $owner_address = $r['owner_address'] ?? '';
-
-                    // OPEN NEW OWNER CARD + EXPORT BUTTON ON TOP
                     ?>
                     <div class="modern-card mb-4" style="border:1px solid rgba(0,0,0,.08);">
                         <div class="card-header d-flex justify-content-between align-items-center">
@@ -1919,7 +1796,6 @@ $rows = $stmt->get_result();
                     <?php
                 }
 
-                // count entries per owner for badge update later
                 $owner_count++;
                 ?>
 
@@ -1936,10 +1812,6 @@ $rows = $stmt->get_result();
                     <td><?= !empty($r['created_at']) ? date('M d, Y h:i A', strtotime($r['created_at'])) : '-' ?></td>
                 </tr>
 
-                <?php
-                // update badge (simple approach: inline script per row group)
-                // This is harmless and keeps your UI accurate without extra queries.
-                ?>
                 <script>
                     (function(){
                         const el = document.getElementById("count-badge-<?= htmlspecialchars($current_owner_key) ?>");
@@ -1951,10 +1823,7 @@ $rows = $stmt->get_result();
 
             <?php endwhile; ?>
 
-            <?php
-            // close last table
-            closeOwnerTable($owner_count);
-            ?>
+            <?php closeOwnerTable($owner_count); ?>
 
         <?php else: ?>
             <div class="empty-state text-center py-4">

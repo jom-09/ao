@@ -38,18 +38,24 @@ if($tab == 'dashboard') {
     <title>Admin Dashboard - T.R.A.C.S</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    <!-- Required Stylesheets (LOCAL ONLY for strict CSP) -->
     <link rel="stylesheet" href="../assets/bootstrap/css/bootstrap.min.css">
     <link rel="stylesheet" href="../assets/bootstrap/css/datatables.min.css">
     <link rel="stylesheet" href="../assets/bootstrap/css/admin.css">
+    <link rel="stylesheet" href="../assets/fontawesome/css/all.min.css">
 </head>
 <body>
 <div class="wrapper">
     <!-- SIDEBAR -->
     <aside class="sidebar" id="sidebar">
-        <div class="sidebar-header">
-            <h4><i class="fas fa-building me-2"></i><span>T.R.A.C.S</span></h4>
-        </div>
+<div class="sidebar-header">
+  <div class="sidebar-brand">
+    <div class="brand-logos">
+      <img src="../assets/img/sample.png" alt="Logo 1">
+      <img src="../assets/img/sample.png" alt="Logo 2">
+    </div>
+    <div class="brand-title">T.R.A.C.S</div>
+  </div>
+</div>
 
         <nav class="nav flex-column">
             <a href="home.php" class="nav-link <?= $tab=='dashboard'?'active':'' ?>"><i class="fas fa-chart-pie"></i><span>Dashboard</span></a>

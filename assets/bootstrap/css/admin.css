@@ -643,3 +643,104 @@ a:focus, button:focus, input:focus, select:focus, textarea:focus{
     top: 10px;
   }
 }
+
+/* ===============================
+   SIDEBAR BRAND CENTERED
+================================= */
+
+.sidebar-header{
+    padding:20px 10px;
+}
+
+/* container */
+.sidebar-brand{
+    display:flex;
+    flex-direction:column;
+    align-items:center;   /* CENTER EVERYTHING */
+    justify-content:center;
+    text-align:center;
+}
+
+/* logos row */
+.brand-logos{
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    gap:14px;
+    margin-bottom:8px;
+}
+
+/* logo images */
+.brand-logos img{
+    width:48px;
+    height:48px;
+    object-fit:contain;
+}
+
+/* TRACS text — ALWAYS CENTER */
+.brand-title{
+    width:100%;
+    text-align:center;
+    font-size:18px;
+    font-weight:700;
+    letter-spacing:3px;
+    color:#ffffff;
+}
+
+/* ===== TRACS SIDEBAR HEADER FIX ===== */
+.sidebar-header{
+  padding: 18px 12px !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+}
+
+.sidebar-header *{
+  box-sizing: border-box;
+}
+
+.sidebar-brand{
+  width: 100%;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  text-align: center !important;
+  gap: 10px;
+}
+
+/* logos row */
+.brand-logos{
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 14px;
+}
+
+/* logo size (para di bulky) */
+.brand-logos img{
+  width: 70px !important;
+  height: 70px !important;
+  object-fit: contain !important;
+  display: block;
+}
+
+/* TRACS title */
+.brand-title{
+  width: 100%;
+  text-align: center !important;
+  font-weight: 800;
+  letter-spacing: 6px;
+  font-size: 18px;
+  color: #fff;
+  line-height: 1;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* kung meron kang old styling na naka h4, i-neutralize */
+.sidebar-header h4,
+.sidebar-header .brand,
+.sidebar-header .sidebar-title{
+  margin: 0 !important;
+  padding: 0 !important;
+}

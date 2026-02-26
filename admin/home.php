@@ -38,11 +38,10 @@ if($tab == 'dashboard') {
     <title>Admin Dashboard - T.R.A.C.S</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    <!-- Required Stylesheets -->
+    <!-- Required Stylesheets (LOCAL ONLY for strict CSP) -->
     <link rel="stylesheet" href="../assets/bootstrap/css/bootstrap.min.css">
     <link rel="stylesheet" href="../assets/bootstrap/css/datatables.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <link href="../assets/bootstrap/css/style.css" rel="stylesheet">
+    <link rel="stylesheet" href="../assets/bootstrap/css/admin.css">
 </head>
 <body>
 <div class="wrapper">
@@ -51,6 +50,7 @@ if($tab == 'dashboard') {
         <div class="sidebar-header">
             <h4><i class="fas fa-building me-2"></i><span>T.R.A.C.S</span></h4>
         </div>
+
         <nav class="nav flex-column">
             <a href="home.php" class="nav-link <?= $tab=='dashboard'?'active':'' ?>"><i class="fas fa-chart-pie"></i><span>Dashboard</span></a>
             <a href="home.php?tab=requests" class="nav-link <?= $tab=='requests'?'active':'' ?>"><i class="fas fa-clipboard-list"></i><span>Requests</span></a>
@@ -62,8 +62,9 @@ if($tab == 'dashboard') {
             <a href="home.php?tab=services" class="nav-link <?= $tab=='services'?'active':'' ?>"><i class="fas fa-concierge-bell"></i><span>Services</span></a>
             <a href="home.php?tab=notice_assessment" class="nav-link <?= $tab=='notice_assessment'?'active':'' ?>"><i class="fas fa-bullhorn"></i><span>Notice of Assessment</span></a>
         </nav>
+
         <div class="mt-auto">
-            <hr class="bg-white opacity-25">
+            <hr>
             <a href="../logout.php" class="logout-btn"><i class="fas fa-sign-out-alt me-2"></i><span>Logout</span></a>
         </div>
     </aside>
@@ -72,7 +73,7 @@ if($tab == 'dashboard') {
     <main class="main-content" id="mainContent">
         <nav class="top-navbar d-flex justify-content-between align-items-center">
             <div class="d-flex align-items-center">
-                <button class="menu-toggle-btn" id="menuToggle">
+                <button class="menu-toggle-btn" id="menuToggle" type="button" aria-label="Toggle menu">
                     <i class="fas fa-bars"></i>
                 </button>
                 <?php
@@ -82,43 +83,52 @@ if($tab == 'dashboard') {
                     'history' => 'Transaction History',
                     'import' => 'Import Data',
                     'find' => 'Find Record',
-                    'faas' => 'FAAS Management',
+                    'faas' => ' Manage Field Appraisal and Assessment Sheet',
                     'certificates' => 'Certificates',
                     'services' => 'Services',
                     'notice_assessment' => 'Notice of Assessment',
                 ];
                 ?>
-                <span class="page-title"><?= $pageTitles[$tab] ?? ucfirst(str_replace('_',' ',$tab)) ?></span>
+                <span class="page-title"><?= htmlspecialchars($pageTitles[$tab] ?? ucfirst(str_replace('_',' ',$tab))) ?></span>
             </div>
 
             <div class="user-profile-pill">
                 <div class="user-avatar">
                     <i class="fas fa-user-circle"></i>
                 </div>
-                <span class="user-name"><?= htmlspecialchars($_SESSION['fullname']) ?></span>
+                <span class="user-name"><?= htmlspecialchars($_SESSION['fullname'] ?? 'Admin') ?></span>
             </div>
         </nav>
 
         <div class="content-area">
+
             <?php if($tab=='dashboard'): ?>
 
-                <!-- Dashboard Stats -->
                 <div class="row g-4 mb-4">
                     <div class="col-md-4">
                         <div class="stat-card">
-                            <div class="stat-info"><h3><?= $pending_count ?></h3><p>Pending Requests</p></div>
+                            <div class="stat-info">
+                                <h3><?= (int)$pending_count ?></h3>
+                                <p>Pending Requests</p>
+                            </div>
                             <div class="stat-icon"><i class="fas fa-clock"></i></div>
                         </div>
                     </div>
                     <div class="col-md-4">
                         <div class="stat-card">
-                            <div class="stat-info"><h3><?= $paid_count ?></h3><p>Paid Requests</p></div>
+                            <div class="stat-info">
+                                <h3><?= (int)$paid_count ?></h3>
+                                <p>Paid Requests</p>
+                            </div>
                             <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
                         </div>
                     </div>
                     <div class="col-md-4">
                         <div class="stat-card">
-                            <div class="stat-info"><h3><?= number_format($total_faas) ?></h3><p>Total FAAS Records</p></div>
+                            <div class="stat-info">
+                                <h3><?= number_format((int)$total_faas) ?></h3>
+                                <p>Total FAAS Records</p>
+                            </div>
                             <div class="stat-icon"><i class="fas fa-file-alt"></i></div>
                         </div>
                     </div>
@@ -127,105 +137,101 @@ if($tab == 'dashboard') {
                 <div class="modern-card">
                     <div class="card-header"><i class="fas fa-chart-line me-2"></i> Welcome Back!</div>
                     <div class="card-body">
-                        <h5>Hello, <?= htmlspecialchars($_SESSION['fullname']) ?> 👋</h5>
-                        <p class="text-muted">You have <?= $pending_count ?> pending requests.</p>
+                        <h5 class="mb-1">Hello, <?= htmlspecialchars($_SESSION['fullname'] ?? 'Admin') ?> 👋</h5>
+                        <p class="text-muted mb-0">You have <?= (int)$pending_count ?> pending requests.</p>
                     </div>
                 </div>
 
             <?php elseif($tab=='requests'): ?>
 
-<!-- REQUESTS -->
-<div class="modern-card">
-    <div class="card-header d-flex justify-content-between align-items-center">
-        <span><i class="fas fa-clipboard-list me-2"></i> Requests (Pending & Paid)</span>
+                <div class="modern-card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span><i class="fas fa-clipboard-list me-2"></i> Requests (Pending & Paid)</span>
 
-        <!-- ✅ PROCESS BUTTON ON TOP (NOT PER ROW) -->
-        <a href="process_certificate.php"
-           class="modern-btn modern-btn-warning modern-btn-sm">
-            <i class="fas fa-cogs me-1"></i> Process
-        </a>
-    </div>
+                        <a href="process_certificate.php" class="modern-btn modern-btn-warning modern-btn-sm">
+                            <i class="fas fa-cogs me-1"></i> Process
+                        </a>
+                    </div>
 
-    <div class="card-body">
-        <div class="table-responsive">
-            <table class="modern-table">
-                <thead>
-                    <tr>
-                        <th>ID</th><th>Client</th><th>Purpose</th><th>Certificates/Services</th>
-                        <th>Total</th><th>Control No</th><th>Status</th><th>Date</th>
-                    </tr>
-                </thead>
-                <tbody>
-                <?php
-                $sql = "
-                    SELECT 
-                        r.id,
-                        CONCAT(c.firstname,' ',c.middlename,' ',c.lastname) AS fullname,
-                        c.purpose,
-                        r.total_amount,
-                        r.control_number,
-                        r.status,
-                        r.created_at,
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="modern-table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th><th>Client</th><th>Purpose</th><th>Certificates/Services</th>
+                                        <th>Total</th><th>Control No</th><th>Status</th><th>Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                <?php
+                                $sql = "
+                                    SELECT
+                                        r.id,
+                                        CONCAT(c.firstname,' ',c.middlename,' ',c.lastname) AS fullname,
+                                        c.purpose,
+                                        r.total_amount,
+                                        r.control_number,
+                                        r.status,
+                                        r.created_at,
 
-                        (
-                            SELECT GROUP_CONCAT(cert.certificate_name SEPARATOR ', ')
-                            FROM request_items ri
-                            JOIN certificates cert ON cert.id = ri.certificate_id
-                            WHERE ri.request_id = r.id
-                        ) AS certificate_list,
+                                        (
+                                            SELECT GROUP_CONCAT(cert.certificate_name SEPARATOR ', ')
+                                            FROM request_items ri
+                                            JOIN certificates cert ON cert.id = ri.certificate_id
+                                            WHERE ri.request_id = r.id
+                                        ) AS certificate_list,
 
-                        (
-                            SELECT GROUP_CONCAT(s.service_name SEPARATOR ', ')
-                            FROM requested_services rs
-                            JOIN services s ON s.id = rs.service_id
-                            WHERE rs.request_id = r.id
-                        ) AS service_list,
+                                        (
+                                            SELECT GROUP_CONCAT(s.service_name SEPARATOR ', ')
+                                            FROM requested_services rs
+                                            JOIN services s ON s.id = rs.service_id
+                                            WHERE rs.request_id = r.id
+                                        ) AS service_list,
 
-                        (SELECT COUNT(*) FROM request_items ri WHERE ri.request_id = r.id) AS cert_count,
-                        (SELECT COUNT(*) FROM requested_services rs WHERE rs.request_id = r.id) AS service_count
+                                        (SELECT COUNT(*) FROM request_items ri WHERE ri.request_id = r.id) AS cert_count,
+                                        (SELECT COUNT(*) FROM requested_services rs WHERE rs.request_id = r.id) AS service_count
 
-                    FROM requests r
-                    JOIN clients c ON r.client_id = c.id
-                    WHERE r.status IN ('PENDING','PAID')
-                    ORDER BY r.created_at DESC
-                ";
-                $result = $conn->query($sql);
+                                    FROM requests r
+                                    JOIN clients c ON r.client_id = c.id
+                                    WHERE r.status IN ('PENDING','PAID')
+                                    ORDER BY r.created_at DESC
+                                ";
+                                $result = $conn->query($sql);
 
-                while($row = $result->fetch_assoc()):
-                    $certCount    = (int)$row['cert_count'];
-                    $serviceCount = (int)$row['service_count'];
+                                while($row = $result->fetch_assoc()):
+                                    $certCount    = (int)$row['cert_count'];
+                                    $serviceCount = (int)$row['service_count'];
 
-                    $items = "-";
-                    if ($certCount > 0 && !empty($row['certificate_list'])) {
-                        $items = $row['certificate_list'];
-                    } elseif ($serviceCount > 0 && !empty($row['service_list'])) {
-                        $items = $row['service_list'];
-                    }
-                ?>
-                <tr>
-                    <td>#<?= (int)$row['id'] ?></td>
-                    <td><?= htmlspecialchars($row['fullname']) ?></td>
-                    <td><?= htmlspecialchars($row['purpose']) ?></td>
-                    <td><?= htmlspecialchars($items) ?></td>
-                    <td><strong>₱<?= number_format((float)$row['total_amount'], 2) ?></strong></td>
-                    <td><?= htmlspecialchars($row['control_number']) ?></td>
-                    <td>
-                        <span class="status-badge <?= strtolower($row['status']) ?>">
-                            <?= htmlspecialchars($row['status']) ?>
-                        </span>
-                    </td>
-                    <td><?= date('M d, Y', strtotime($row['created_at'])) ?></td>
-                </tr>
-                <?php endwhile; ?>
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
+                                    $items = "-";
+                                    if ($certCount > 0 && !empty($row['certificate_list'])) {
+                                        $items = $row['certificate_list'];
+                                    } elseif ($serviceCount > 0 && !empty($row['service_list'])) {
+                                        $items = $row['service_list'];
+                                    }
+                                ?>
+                                <tr>
+                                    <td>#<?= (int)$row['id'] ?></td>
+                                    <td><?= htmlspecialchars($row['fullname'] ?? '-') ?></td>
+                                    <td><?= htmlspecialchars($row['purpose'] ?? '-') ?></td>
+                                    <td><?= htmlspecialchars($items) ?></td>
+                                    <td><strong>₱<?= number_format((float)$row['total_amount'], 2) ?></strong></td>
+                                    <td><?= htmlspecialchars($row['control_number'] ?? '-') ?></td>
+                                    <td>
+                                        <span class="status-badge <?= strtolower((string)$row['status']) ?>">
+                                            <?= htmlspecialchars((string)$row['status']) ?>
+                                        </span>
+                                    </td>
+                                    <td><?= !empty($row['created_at']) ? date('M d, Y', strtotime($row['created_at'])) : '-' ?></td>
+                                </tr>
+                                <?php endwhile; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
 
             <?php elseif($tab=='history'): ?>
 
-                <!-- Transaction History -->
                 <div class="modern-card">
                     <div class="card-header"><i class="fas fa-history me-2"></i> Transaction History</div>
                     <div class="card-body">
@@ -239,37 +245,48 @@ if($tab == 'dashboard') {
                                 </thead>
                                 <tbody>
                                 <?php
-                                // ✅ history shows PAID only (since only Pending/Paid exist)
-                                $sql2 = "SELECT r.id, CONCAT(c.firstname,' ',c.middlename,' ',c.lastname) AS fullname, c.purpose, r.total_amount, r.control_number, r.status, r.created_at
-                                        FROM requests r
-                                        JOIN clients c ON r.client_id=c.id
-                                        WHERE r.status='PAID'
-                                        ORDER BY r.created_at DESC";
+                                $sql2 = "
+                                    SELECT
+                                        r.id,
+                                        CONCAT(c.firstname,' ',c.middlename,' ',c.lastname) AS fullname,
+                                        c.purpose,
+                                        r.total_amount,
+                                        r.control_number,
+                                        r.status,
+                                        r.created_at
+                                    FROM requests r
+                                    JOIN clients c ON r.client_id=c.id
+                                    WHERE r.status='PAID'
+                                    ORDER BY r.created_at DESC
+                                ";
                                 $res2 = $conn->query($sql2);
+
                                 while($row = $res2->fetch_assoc()):
-                                    $cert_sql = "SELECT c.certificate_name
-                                                 FROM request_items ri
-                                                 JOIN certificates c ON ri.certificate_id = c.id
-                                                 WHERE ri.request_id=".$row['id'];
+                                    $cert_sql = "
+                                        SELECT c.certificate_name
+                                        FROM request_items ri
+                                        JOIN certificates c ON ri.certificate_id = c.id
+                                        WHERE ri.request_id=".(int)$row['id']."
+                                    ";
                                     $cert_res = $conn->query($cert_sql);
                                     $certs = [];
                                     while($c = $cert_res->fetch_assoc()) $certs[] = $c['certificate_name'];
                                 ?>
                                 <tr>
                                     <td>#<?= (int)$row['id'] ?></td>
-                                    <td><?= htmlspecialchars($row['fullname']) ?></td>
-                                    <td><?= htmlspecialchars($row['purpose']) ?></td>
+                                    <td><?= htmlspecialchars($row['fullname'] ?? '-') ?></td>
+                                    <td><?= htmlspecialchars($row['purpose'] ?? '-') ?></td>
                                     <td><?= htmlspecialchars(implode(", ", $certs)) ?></td>
                                     <td><strong>₱<?= number_format((float)$row['total_amount'],2) ?></strong></td>
-                                    <td><?= htmlspecialchars($row['control_number']) ?></td>
+                                    <td><?= htmlspecialchars($row['control_number'] ?? '-') ?></td>
                                     <td>
                                         <?php
-                                        $status = $row['status'];
-                                        $status_class = in_array($status,['PENDING','PAID']) ? strtolower($status) : '';
+                                        $status = (string)($row['status'] ?? '');
+                                        $status_class = in_array($status,['PENDING','PAID'], true) ? strtolower($status) : '';
                                         ?>
                                         <span class="status-badge <?= $status_class ?>"><?= htmlspecialchars($status) ?></span>
                                     </td>
-                                    <td><?= date('M d, Y', strtotime($row['created_at'])) ?></td>
+                                    <td><?= !empty($row['created_at']) ? date('M d, Y', strtotime($row['created_at'])) : '-' ?></td>
                                 </tr>
                                 <?php endwhile; ?>
                                 </tbody>
@@ -280,7 +297,6 @@ if($tab == 'dashboard') {
 
             <?php elseif($tab=='import'): ?>
 
-                <!-- Import Data -->
                 <div class="modern-card">
                     <div class="card-header"><i class="fas fa-file-import me-2"></i> Import Excel Data</div>
                     <div class="card-body">
@@ -333,11 +349,11 @@ $results_barangay = [];
 $results_master   = [];
 
 $selected_barangay = $_GET['barangay'] ?? '';
-$search_name       = trim($_GET['search'] ?? '');          // per-barangay
-$search_global     = trim($_GET['search_global'] ?? '');   // global (land_holdings_master)
+$search_name       = trim($_GET['search'] ?? '');
+$search_global     = trim($_GET['search_global'] ?? '');
 
-// ✅ PER-BARANGAY SEARCH (existing behavior)
-if ($selected_barangay !== '' && $search_name !== '' && in_array($selected_barangay, $allowed_tables)) {
+// PER-BARANGAY SEARCH
+if ($selected_barangay !== '' && $search_name !== '' && in_array($selected_barangay, $allowed_tables, true)) {
     $stmt = $conn->prepare("SELECT * FROM `$selected_barangay` WHERE declared_owner LIKE CONCAT('%', ?, '%')");
     $stmt->bind_param("s", $search_name);
     $stmt->execute();
@@ -346,10 +362,9 @@ if ($selected_barangay !== '' && $search_name !== '' && in_array($selected_baran
     $stmt->close();
 }
 
-// ✅ GLOBAL SEARCH (land_holdings_master)
+// GLOBAL SEARCH (land_holdings_master)
 if ($search_global !== '') {
-    // NOTE: backticks important dahil may dot yung column name `ARP_No.` and `PIN_No.`
-    $sql = "SELECT 
+    $sql = "SELECT
                 declared_owner, owner_address, property_location, title, lot,
                 `ARP_No.` AS `ARP_No.`, `PIN_No.` AS `PIN_No.`,
                 classification, actual_use, area, mv, av, taxability, effectivity, cancellation
@@ -365,8 +380,7 @@ if ($search_global !== '') {
     $stmt2->close();
 }
 
-// columns to display (same layout)
-$display_fields = [
+$display_fields_find = [
     'declared_owner','owner_address','property_location','title','lot',
     'ARP_No.','PIN_No.','classification','actual_use','area',
     'mv','av','taxability','effectivity','cancellation'
@@ -382,7 +396,6 @@ $display_fields = [
             <input type="hidden" name="tab" value="find">
 
             <div class="row g-3">
-                <!-- ✅ Barangay Search -->
                 <div class="col-md-4 col-sm-12">
                     <label class="modern-form-label">Barangay (Optional for Barangay Search)</label>
                     <select name="barangay" class="modern-form-select">
@@ -402,7 +415,6 @@ $display_fields = [
                            placeholder="Search owner inside selected barangay">
                 </div>
 
-                <!-- ✅ Global Search -->
                 <div class="col-md-4 col-sm-12">
                     <label class="modern-form-label">Global Search Declared Owner (Master List)</label>
                     <input type="text" name="search_global" class="modern-form-control"
@@ -424,15 +436,12 @@ $display_fields = [
     </div>
 </div>
 
-<!-- ===========================
-     ✅ GLOBAL RESULTS (MASTER)
-=========================== -->
 <?php if($search_global !== ''): ?>
     <?php if(!empty($results_master)): ?>
         <div class="modern-card mb-4">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <span><i class="fas fa-globe me-2"></i> Global Results (land_holdings_master)</span>
-                <span class="badge bg-primary" style="font-size: 0.9rem; padding: 8px 15px; border-radius: 30px;">
+                <span class="badge bg-primary badge-pill">
                     <i class="fas fa-database me-1"></i> Found: <?= count($results_master) ?> record(s)
                 </span>
             </div>
@@ -450,7 +459,7 @@ $display_fields = [
                             <tbody>
                             <?php foreach($results_master as $row): ?>
                                 <tr>
-                                    <?php foreach($display_fields as $field): ?>
+                                    <?php foreach($display_fields_find as $field): ?>
                                         <td title="<?= htmlspecialchars($row[$field] ?? '') ?>">
                                             <?= htmlspecialchars($row[$field] ?? '') ?>
                                         </td>
@@ -472,15 +481,12 @@ $display_fields = [
     <?php endif; ?>
 <?php endif; ?>
 
-<!-- ===========================
-     ✅ BARANGAY RESULTS (OLD)
-=========================== -->
 <?php if($selected_barangay !== '' && $search_name !== ''): ?>
     <?php if(!empty($results_barangay)): ?>
         <div class="modern-card">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <span><i class="fas fa-list me-2"></i> Barangay Results (<?= ucwords(str_replace('_',' ',$selected_barangay)) ?>)</span>
-                <span class="badge bg-primary" style="font-size: 0.9rem; padding: 8px 15px; border-radius: 30px;">
+                <span class="badge bg-primary badge-pill">
                     <i class="fas fa-database me-1"></i> Found: <?= count($results_barangay) ?> record(s)
                 </span>
             </div>
@@ -498,7 +504,7 @@ $display_fields = [
                             <tbody>
                             <?php foreach($results_barangay as $row): ?>
                                 <tr>
-                                    <?php foreach($display_fields as $field): ?>
+                                    <?php foreach($display_fields_find as $field): ?>
                                         <td title="<?= htmlspecialchars($row[$field] ?? '') ?>">
                                             <?= htmlspecialchars($row[$field] ?? '') ?>
                                         </td>
@@ -520,7 +526,7 @@ $display_fields = [
     <?php endif; ?>
 <?php endif; ?>
 
-  <?php elseif($tab=='faas'): ?>
+            <?php elseif($tab=='faas'): ?>
 
 <?php
 $selected_barangay = $_GET['barangay'] ?? '';
@@ -529,19 +535,11 @@ $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 if($page < 1) $page = 1;
 
-// search term
 $search_owner = trim($_GET['search_owner'] ?? '');
 
-if($selected_barangay && !in_array($selected_barangay,$allowed_tables)) die("Invalid barangay.");
+if($selected_barangay && !in_array($selected_barangay, $allowed_tables, true)) die("Invalid barangay.");
 
-/*
-  IMPORTANT FIX:
-  DB columns: `ARP_No.` and `PIN_No.` (with dots)
-  HTML input names MUST NOT contain dots because PHP converts '.' to '_'
-  So we use: arp_no, pin_no (safe)
-*/
-
-// ✅ INPUT NAMES (safe)
+// input names (safe)
 $input_fields = [
     'arp_no','declared_owner',
     'owner_address','property_location','title','lot',
@@ -556,7 +554,7 @@ $labels = [
     'Market Value','Assessed Value','Taxability','Effectivity','Cancellation'
 ];
 
-// ✅ DISPLAY FIELDS (DB names)
+// display fields (DB)
 $display_fields = [
     'ARP_No.','declared_owner',
     'owner_address','property_location','title','lot',
@@ -564,9 +562,7 @@ $display_fields = [
     'mv','av','taxability','effectivity','cancellation'
 ];
 
-/* ===============================
-   DELETE (by id)
-================================== */
+/* DELETE */
 if($action=='delete' && $selected_barangay && $id > 0){
     $stmt = $conn->prepare("DELETE FROM `$selected_barangay` WHERE id=?");
     $stmt->bind_param("i",$id);
@@ -579,18 +575,25 @@ if($action=='delete' && $selected_barangay && $id > 0){
     exit();
 }
 
-/* ===============================
-   SAVE ADD/EDIT (single)
-================================== */
+/* SAVE ADD/EDIT */
 if(isset($_POST['save_faas'])){
-    $brgy = $_POST['barangay'] ?? '';
-    if(!in_array($brgy,$allowed_tables)) die("Invalid barangay.");
-
     $mode = $_POST['mode'] ?? '';
+
+    // ADD: table destination comes from barangay select (required)
+    // EDIT: table destination is the loaded barangay
+    $brgy = $_POST['barangay'] ?? '';
+    if($mode === 'edit') $brgy = $selected_barangay;
+
+    if(!in_array($brgy, $allowed_tables, true)) die("Invalid barangay.");
+
     $data = [];
     foreach($input_fields as $field){
         $data[$field] = trim($_POST[$field] ?? '');
     }
+
+    // If you want property_location to always show readable barangay name for ADD,
+    // uncomment this line:
+    // if($mode==='add') $data['property_location'] = ucwords(str_replace('_',' ', $brgy));
 
     if($mode=='add'){
         $stmt = $conn->prepare("
@@ -620,13 +623,12 @@ if(isset($_POST['save_faas'])){
         $faas_id = (int)$conn->insert_id;
         $stmt->close();
 
-        // ✅ LOG ONLY FOR ADD (put INSIDE add)
+        // LOG (only for ADD)
         $week_key = (int)$conn->query("SELECT YEARWEEK(CURDATE(), 1) AS wk")->fetch_assoc()['wk'];
         $owner = $data['declared_owner'];
         $created_by = $_SESSION['fullname'] ?? 'Admin';
         $owner_key = strtolower(preg_replace('/\s+/', ' ', $owner));
 
-        // NOTE: If your logs table DOESN'T have faas_id, remove it from query.
         $log = $conn->prepare("
             INSERT INTO notice_of_assessment_logs
             (barangay, declared_owner, owner_address, owner_key, arp_no, pin_no, property_location, classification, mv, av, created_by, week_key, faas_id)
@@ -688,24 +690,21 @@ if(isset($_POST['save_faas'])){
         $stmt->close();
     }
 
-    $qs = "tab=faas&barangay=".urlencode($brgy)."&page=".$page;
+    $qs = "tab=faas";
+    if($selected_barangay) $qs .= "&barangay=".urlencode($selected_barangay);
+    $qs .= "&page=".$page;
     if($search_owner !== '') $qs .= "&search_owner=".urlencode($search_owner);
     header("Location: home.php?$qs");
     exit();
 }
 
-/* ===============================
-   BULK ADD (multi-row form)
-================================== */
+/* BULK ADD (PER-ROW BARANGAY DESTINATION via row_barangay[]) */
 if(isset($_POST['bulk_add_faas'])){
-    $brgy = $_POST['barangay'] ?? '';
-    if(!in_array($brgy,$allowed_tables)) die("Invalid barangay.");
 
-    // arrays of inputs
     $arp_no_arr          = $_POST['arp_no'] ?? [];
     $declared_owner_arr  = $_POST['declared_owner'] ?? [];
     $owner_address_arr   = $_POST['owner_address'] ?? [];
-    $property_loc_arr    = $_POST['property_location'] ?? [];
+    $row_barangay_arr    = $_POST['row_barangay'] ?? []; // ✅ per-row table destination
     $title_arr           = $_POST['title'] ?? [];
     $lot_arr             = $_POST['lot'] ?? [];
     $pin_no_arr          = $_POST['pin_no'] ?? [];
@@ -718,58 +717,46 @@ if(isset($_POST['bulk_add_faas'])){
     $effectivity_arr     = $_POST['effectivity'] ?? [];
     $cancellation_arr    = $_POST['cancellation'] ?? [];
 
-    // Prepare insert statement
-    $ins = $conn->prepare("
-        INSERT INTO `$brgy`
-        (declared_owner,owner_address,property_location,title,lot,`ARP_No.`,`PIN_No.`,classification,actual_use,area,mv,av,taxability,effectivity,cancellation)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-    ");
-
-    // Optional: log insert (only if your logs table has faas_id column)
-    $has_faas_id = true; // set false if you did NOT add faas_id column in logs
-
-    if($has_faas_id){
-        $week_key = (int)$conn->query("SELECT YEARWEEK(CURDATE(), 1) AS wk")->fetch_assoc()['wk'];
-        $created_by = $_SESSION['fullname'] ?? 'Admin';
-
-        $log = $conn->prepare("
-            INSERT INTO notice_of_assessment_logs
-            (barangay, declared_owner, owner_address, owner_key, arp_no, pin_no, property_location, classification, mv, av, created_by, week_key, faas_id)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?, ?, ?)
-        ");
-    }
+    $week_key   = (int)$conn->query("SELECT YEARWEEK(CURDATE(), 1) AS wk")->fetch_assoc()['wk'];
+    $created_by = $_SESSION['fullname'] ?? 'Admin';
 
     $ok = 0;
     $conn->begin_transaction();
 
     try {
-        $n = max(
-            count($arp_no_arr),
-            count($declared_owner_arr)
-        );
+        $n = max(count($arp_no_arr), count($declared_owner_arr), count($row_barangay_arr));
 
         for($i=0; $i<$n; $i++){
-
             $arp   = trim($arp_no_arr[$i] ?? '');
             $owner = trim($declared_owner_arr[$i] ?? '');
+            $brgy  = trim($row_barangay_arr[$i] ?? '');
 
-            // Require at least ARP + Owner
-            if($arp==='' || $owner==='') continue;
+            if($arp === '' || $owner === '' || $brgy === '') continue;
+            if(!in_array($brgy, $allowed_tables, true)) continue;
 
-            $owner_address     = trim($owner_address_arr[$i] ?? '');
-            $property_location = trim($property_loc_arr[$i] ?? '');
-            $title             = trim($title_arr[$i] ?? '');
-            $lot               = trim($lot_arr[$i] ?? '');
-            $pin               = trim($pin_no_arr[$i] ?? '');
-            $classification     = trim($classification_arr[$i] ?? '');
-            $actual_use         = trim($actual_use_arr[$i] ?? '');
-            $area              = trim($area_arr[$i] ?? '');
-            $mv                = trim($mv_arr[$i] ?? '');
-            $av                = trim($av_arr[$i] ?? '');
-            $taxability        = trim($taxability_arr[$i] ?? '');
-            $effectivity       = trim($effectivity_arr[$i] ?? '');
-            $cancellation      = trim($cancellation_arr[$i] ?? '');
+            $owner_address = trim($owner_address_arr[$i] ?? '');
+            $title         = trim($title_arr[$i] ?? '');
+            $lot           = trim($lot_arr[$i] ?? '');
+            $pin           = trim($pin_no_arr[$i] ?? '');
+            $classification= trim($classification_arr[$i] ?? '');
+            $actual_use    = trim($actual_use_arr[$i] ?? '');
+            $area          = trim($area_arr[$i] ?? '');
+            $mv            = trim($mv_arr[$i] ?? '');
+            $av            = trim($av_arr[$i] ?? '');
+            $taxability    = trim($taxability_arr[$i] ?? '');
+            $effectivity   = trim($effectivity_arr[$i] ?? '');
+            $cancellation  = trim($cancellation_arr[$i] ?? '');
 
+            // store readable location in record (Alicia, Cabugao, etc.)
+            $property_location = ucwords(str_replace('_',' ', $brgy));
+
+            // insert into correct table per row
+            $sqlIns = "
+                INSERT INTO `$brgy`
+                (declared_owner,owner_address,property_location,title,lot,`ARP_No.`,`PIN_No.`,classification,actual_use,area,mv,av,taxability,effectivity,cancellation)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            ";
+            $ins = $conn->prepare($sqlIns);
             $ins->bind_param(
                 "sssssssssssssss",
                 $owner,
@@ -790,31 +777,36 @@ if(isset($_POST['bulk_add_faas'])){
             );
             $ins->execute();
             $faas_id = (int)$conn->insert_id;
+            $ins->close();
 
-            // Log if enabled
-            if($has_faas_id){
-                $owner_key = strtolower(preg_replace('/\s+/', ' ', $owner));
-                $mv_f = (float)($mv !== '' ? $mv : 0);
-                $av_f = (float)($av !== '' ? $av : 0);
+            // log
+            $owner_key = strtolower(preg_replace('/\s+/', ' ', $owner));
+            $mv_f = (float)($mv !== '' ? $mv : 0);
+            $av_f = (float)($av !== '' ? $av : 0);
 
-                $log->bind_param(
-                    "ssssssssddsii",
-                    $brgy,
-                    $owner,
-                    $owner_address,
-                    $owner_key,
-                    $arp,
-                    $pin,
-                    $property_location,
-                    $classification,
-                    $mv_f,
-                    $av_f,
-                    $created_by,
-                    $week_key,
-                    $faas_id
-                );
-                $log->execute();
-            }
+            $log = $conn->prepare("
+                INSERT INTO notice_of_assessment_logs
+                (barangay, declared_owner, owner_address, owner_key, arp_no, pin_no, property_location, classification, mv, av, created_by, week_key, faas_id)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?, ?, ?)
+            ");
+            $log->bind_param(
+                "ssssssssddsii",
+                $brgy,
+                $owner,
+                $owner_address,
+                $owner_key,
+                $arp,
+                $pin,
+                $property_location,
+                $classification,
+                $mv_f,
+                $av_f,
+                $created_by,
+                $week_key,
+                $faas_id
+            );
+            $log->execute();
+            $log->close();
 
             $ok++;
         }
@@ -822,20 +814,14 @@ if(isset($_POST['bulk_add_faas'])){
         $conn->commit();
     } catch(Exception $e){
         $conn->rollback();
-        $ins->close();
-        if(isset($log)) $log->close();
         die("Bulk add failed: ".$e->getMessage());
     }
 
-    $ins->close();
-    if(isset($log)) $log->close();
-
-    header("Location: home.php?tab=faas&barangay=".urlencode($brgy)."&success=".urlencode("Bulk added: $ok record(s)"));
+    header("Location: home.php?tab=faas&success=".urlencode("Bulk added: $ok record(s)"));
     exit();
 }
 ?>
 
-<!-- Barangay Select -->
 <div class="modern-card mb-4">
     <div class="card-header"><i class="fas fa-folder-tree me-2"></i> FAAS Management</div>
     <div class="card-body">
@@ -843,8 +829,8 @@ if(isset($_POST['bulk_add_faas'])){
             <input type="hidden" name="tab" value="faas">
 
             <div class="col-md-6">
-                <select name="barangay" class="modern-form-select" required>
-                    <option value="">-- Select Barangay --</option>
+                <select name="barangay" class="modern-form-select">
+                    <option value="">-- Select Barangay (Optional) --</option>
                     <?php foreach($allowed_tables as $table): ?>
                         <option value="<?= $table ?>" <?= $selected_barangay==$table ? "selected" : "" ?>>
                             <?= ucwords(str_replace('_',' ',$table)) ?>
@@ -854,52 +840,50 @@ if(isset($_POST['bulk_add_faas'])){
             </div>
 
             <div class="col-md-3">
-                <button class="modern-btn modern-btn-primary w-100">
+                <button class="modern-btn modern-btn-primary w-100" type="submit">
                     <i class="fas fa-sync-alt me-2"></i> Load
                 </button>
             </div>
 
-            <?php if($selected_barangay): ?>
-                <div class="col-md-3 d-flex gap-2">
-                    <a href="home.php?tab=faas&barangay=<?= urlencode($selected_barangay) ?>&action=add"
-                       class="modern-btn modern-btn-success w-100">
-                        <i class="fas fa-plus-circle me-2"></i> Add FAAS
-                    </a>
+            <div class="col-md-3 d-flex gap-2">
+                <a href="home.php?tab=faas&action=add<?= $selected_barangay ? '&barangay='.urlencode($selected_barangay) : '' ?>"
+                   class="modern-btn modern-btn-success w-100">
+                    <i class="fas fa-plus-circle me-2"></i> Add FAAS
+                </a>
 
-                    <a href="home.php?tab=faas&barangay=<?= urlencode($selected_barangay) ?>&action=bulk"
-                       class="modern-btn modern-btn-secondary w-100">
-                        <i class="fas fa-layer-group me-2"></i> Bulk
-                    </a>
-                </div>
-            <?php endif; ?>
+                <a href="home.php?tab=faas&action=bulk<?= $selected_barangay ? '&barangay='.urlencode($selected_barangay) : '' ?>"
+                   class="modern-btn modern-btn-secondary w-100">
+                    <i class="fas fa-layer-group me-2"></i> Bulk
+                </a>
+            </div>
         </form>
     </div>
 </div>
 
-<!-- Bulk Add UI -->
-<?php if($selected_barangay && $action==='bulk'): ?>
+<?php if(isset($_GET['success'])): ?>
+    <div class="modern-alert modern-alert-success mb-3">
+        <i class="fas fa-check-circle me-2"></i><?= htmlspecialchars($_GET['success']) ?>
+    </div>
+<?php endif; ?>
+
+<?php if($action==='bulk'): ?>
 <div class="modern-card mb-4">
-    <div class="card-header" style="background: linear-gradient(135deg,#6c757d,#343a40); color:#fff;">
-        <i class="fas fa-layer-group me-2"></i> Bulk Add FAAS (Fill Multiple Rows)
+    <div class="card-header is-secondary">
+        <i class="fas fa-layer-group me-2"></i> Bulk Add FAAS (Per Row Barangay Table)
     </div>
 
     <div class="card-body">
-        <?php if(isset($_GET['success'])): ?>
-            <div class="modern-alert modern-alert-success">
-                <i class="fas fa-check-circle me-2"></i><?= htmlspecialchars($_GET['success']) ?>
-            </div>
-        <?php endif; ?>
+        <div class="modern-alert modern-alert-info mb-3">
+            <i class="fas fa-info-circle me-2"></i>
+            Ang “Property Location (Barangay)” ang magdedecide kung saang table isi-save ang row (Alicia → <b>alicia</b> table).
+        </div>
 
         <form method="POST" id="bulkFaasForm">
-            <input type="hidden" name="barangay" value="<?= htmlspecialchars($selected_barangay) ?>">
-
             <div id="bulkRows">
-
-                <!-- ROW TEMPLATE (Row 1) -->
                 <div class="border rounded p-3 mb-3 bulk-row">
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <strong><i class="fas fa-list me-2"></i>Row <span class="row-number">1</span></strong>
-                        <button type="button" class="modern-btn modern-btn-danger modern-btn-sm remove-row" style="display:none;">
+                        <button type="button" class="modern-btn modern-btn-danger modern-btn-sm remove-row" data-role="remove-row">
                             <i class="fas fa-trash"></i> Remove
                         </button>
                     </div>
@@ -915,8 +899,16 @@ if(isset($_POST['bulk_add_faas'])){
                         <div class="col-md-6">
                             <input name="owner_address[]" class="modern-form-control" placeholder="Owner Address">
                         </div>
+
                         <div class="col-md-6">
-                            <input name="property_location[]" class="modern-form-control" placeholder="Property Location">
+                            <select name="row_barangay[]" class="modern-form-select" required>
+                                <option value="">-- Property Location (Barangay) --</option>
+                                <?php foreach($allowed_tables as $t): ?>
+                                    <option value="<?= htmlspecialchars($t) ?>">
+                                        <?= ucwords(str_replace('_',' ', $t)) ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
                         </div>
 
                         <div class="col-md-6">
@@ -959,7 +951,6 @@ if(isset($_POST['bulk_add_faas'])){
                         </div>
                     </div>
                 </div>
-
             </div>
 
             <div class="d-flex flex-wrap gap-2 mt-3">
@@ -971,59 +962,16 @@ if(isset($_POST['bulk_add_faas'])){
                     <i class="fas fa-save me-2"></i> Save All
                 </button>
 
-                <a href="home.php?tab=faas&barangay=<?= urlencode($selected_barangay) ?>"
+                <a href="home.php?tab=faas<?= $selected_barangay ? '&barangay='.urlencode($selected_barangay) : '' ?>"
                    class="modern-btn modern-btn-secondary">
-                    <i class="fas fa-times me-2"></i> Cancel
+                   <i class="fas fa-times me-2"></i> Cancel
                 </a>
             </div>
         </form>
     </div>
 </div>
-
-<script>
-(function(){
-    const bulkRows = document.getElementById('bulkRows');
-    const addBtn = document.getElementById('addRowBtn');
-
-    function renumber(){
-        const rows = bulkRows.querySelectorAll('.bulk-row');
-        rows.forEach((r, idx) => {
-            r.querySelector('.row-number').textContent = (idx+1);
-            const removeBtn = r.querySelector('.remove-row');
-            removeBtn.style.display = (rows.length > 1) ? 'inline-flex' : 'none';
-        });
-    }
-
-    addBtn.addEventListener('click', () => {
-        const first = bulkRows.querySelector('.bulk-row');
-        const clone = first.cloneNode(true);
-
-        // clear values
-        clone.querySelectorAll('input').forEach(inp => inp.value = '');
-
-        bulkRows.appendChild(clone);
-
-        // attach remove handler
-        clone.querySelector('.remove-row').addEventListener('click', () => {
-            clone.remove();
-            renumber();
-        });
-
-        renumber();
-    });
-
-    // attach remove handler for first row (hidden unless >1)
-    bulkRows.querySelector('.remove-row').addEventListener('click', function(){
-        this.closest('.bulk-row').remove();
-        renumber();
-    });
-
-    renumber();
-})();
-</script>
 <?php endif; ?>
 
-<!-- Search Person -->
 <?php if($selected_barangay && $action!='add' && $action!='edit' && $action!='bulk'): ?>
 <div class="modern-card mb-4">
     <div class="card-header"><i class="fas fa-search me-2"></i> Search Person</div>
@@ -1040,7 +988,7 @@ if(isset($_POST['bulk_add_faas'])){
             </div>
 
             <div class="col-md-3 d-flex gap-2">
-                <button class="modern-btn modern-btn-primary w-100">
+                <button class="modern-btn modern-btn-primary w-100" type="submit">
                     <i class="fas fa-search me-2"></i> Search
                 </button>
 
@@ -1053,26 +1001,45 @@ if(isset($_POST['bulk_add_faas'])){
 </div>
 <?php endif; ?>
 
-<!-- Add/Edit Form -->
-<?php if(($action=='add' || $action=='edit') && $selected_barangay):
+<?php if(($action=='add' || $action=='edit')):
     $edit_row = [];
-    if($action=='edit' && $id>0){
-        $stmt = $conn->prepare("SELECT * FROM `$selected_barangay` WHERE id=?");
-        $stmt->bind_param("i",$id);
-        $stmt->execute();
-        $edit_row = $stmt->get_result()->fetch_assoc() ?: [];
-        $stmt->close();
+    if($action=='edit'){
+        if(!$selected_barangay || !in_array($selected_barangay, $allowed_tables, true)) die("Missing/Invalid barangay for edit.");
+        if($id>0){
+            $stmt = $conn->prepare("SELECT * FROM `$selected_barangay` WHERE id=?");
+            $stmt->bind_param("i",$id);
+            $stmt->execute();
+            $edit_row = $stmt->get_result()->fetch_assoc() ?: [];
+            $stmt->close();
+        }
     }
 ?>
 <div class="modern-card mb-4">
-    <div class="card-header" style="background: <?= $action=='add' ? 'linear-gradient(135deg, #28a745, #20c997)' : 'linear-gradient(135deg, #ffc107, #fd7e14)' ?>; color: white;">
-        <i class="fas fa-<?= $action=='add' ? 'plus' : 'edit' ?>-circle me-2"></i><?= $action=='add' ? 'Add New FAAS' : 'Edit FAAS Record' ?>
+    <div class="card-header <?= $action=='add' ? 'is-success' : 'is-warning' ?>">
+        <i class="fas fa-<?= $action=='add' ? 'plus' : 'edit' ?>-circle me-2"></i>
+        <?= $action=='add' ? 'Add New FAAS' : 'Edit FAAS Record' ?>
     </div>
     <div class="card-body">
         <form method="POST">
-            <input type="hidden" name="mode" value="<?= $action ?>">
-            <input type="hidden" name="barangay" value="<?= $selected_barangay ?>">
-            <input type="hidden" name="original_id" value="<?= (int)($edit_row['id'] ?? 0) ?>">
+            <input type="hidden" name="mode" value="<?= htmlspecialchars($action) ?>">
+
+            <?php if($action==='edit'): ?>
+                <input type="hidden" name="barangay" value="<?= htmlspecialchars($selected_barangay) ?>">
+                <input type="hidden" name="original_id" value="<?= (int)($edit_row['id'] ?? 0) ?>">
+            <?php else: ?>
+                <div class="mb-3">
+                    <label class="modern-form-label">Save To Barangay (Table)</label>
+                    <select name="barangay" class="modern-form-select" required>
+                        <option value="">-- Select Barangay --</option>
+                        <?php foreach($allowed_tables as $t): ?>
+                            <option value="<?= htmlspecialchars($t) ?>" <?= ($selected_barangay===$t?'selected':'') ?>>
+                                <?= ucwords(str_replace('_',' ', $t)) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                    <small class="text-muted d-block mt-1">Required. Ito ang table kung saan isi-save ang record.</small>
+                </div>
+            <?php endif; ?>
 
             <div class="row g-3">
                 <?php foreach($input_fields as $i=>$field): ?>
@@ -1083,8 +1050,8 @@ if(isset($_POST['bulk_add_faas'])){
                         else $val = $edit_row[$field] ?? '';
                     ?>
                     <div class="col-md-6">
-                        <input name="<?= $field ?>" class="modern-form-control"
-                               placeholder="<?= $labels[$i] ?>"
+                        <input name="<?= htmlspecialchars($field) ?>" class="modern-form-control"
+                               placeholder="<?= htmlspecialchars($labels[$i]) ?>"
                                value="<?= htmlspecialchars($val) ?>">
                     </div>
                 <?php endforeach; ?>
@@ -1093,9 +1060,9 @@ if(isset($_POST['bulk_add_faas'])){
                     <button type="submit" name="save_faas" class="modern-btn modern-btn-primary">
                         <i class="fas fa-save me-2"></i> <?= $action=='add' ? 'Save' : 'Update' ?>
                     </button>
-                    <a href="home.php?tab=faas&barangay=<?= urlencode($selected_barangay) ?>"
+                    <a href="home.php?tab=faas<?= $selected_barangay ? '&barangay='.urlencode($selected_barangay) : '' ?>"
                        class="modern-btn modern-btn-secondary ms-2">
-                        <i class="fas fa-times me-2"></i> Cancel
+                       <i class="fas fa-times me-2"></i> Cancel
                     </a>
                 </div>
             </div>
@@ -1104,7 +1071,6 @@ if(isset($_POST['bulk_add_faas'])){
 </div>
 <?php endif; ?>
 
-<!-- Table with Pagination -->
 <?php if($selected_barangay && $action!='add' && $action!='edit' && $action!='bulk'):
 
     $limit = 15;
@@ -1140,19 +1106,22 @@ if(isset($_POST['bulk_add_faas'])){
 ?>
 
 <div class="scroll-indicator"><i class="fas fa-arrow-left me-2"></i> Swipe to scroll table <i class="fas fa-arrow-right ms-2"></i></div>
+
 <div class="modern-card">
     <div class="card-header d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
         <span class="mb-2 mb-md-0">
             <i class="fas fa-table me-2"></i>
             FAAS Records - <?= ucwords(str_replace('_',' ',$selected_barangay)) ?>
             <?php if($search_owner !== ''): ?>
-                <span class="badge bg-warning text-dark ms-2">Filtered: <?= htmlspecialchars($search_owner) ?></span>
+                <span class="badge bg-warning text-dark ms-2"><?= htmlspecialchars($search_owner) ?></span>
             <?php endif; ?>
         </span>
+
         <div class="d-flex flex-wrap gap-2">
-            <span class="badge bg-primary" style="font-size: 0.9rem; padding: 8px 15px; border-radius: 30px;">
+            <span class="badge bg-primary badge-pill">
                 <i class="fas fa-database me-1"></i> Total: <?= number_format($total_records) ?> records
             </span>
+
             <a href="home.php?tab=faas&barangay=<?= urlencode($selected_barangay) ?>&action=add"
                class="modern-btn modern-btn-success modern-btn-sm">
                 <i class="fas fa-plus-circle me-1"></i> Add New
@@ -1167,7 +1136,7 @@ if(isset($_POST['bulk_add_faas'])){
                     <thead>
                         <tr>
                             <?php foreach($labels as $label): ?>
-                                <th><?= $label ?></th>
+                                <th><?= htmlspecialchars($label) ?></th>
                             <?php endforeach; ?>
                             <th class="text-center">Actions</th>
                         </tr>
@@ -1187,8 +1156,9 @@ if(isset($_POST['bulk_add_faas'])){
                                     </a>
 
                                     <a href="home.php?tab=faas&barangay=<?= urlencode($selected_barangay) ?>&action=delete&id=<?= (int)$row['id'] ?>&page=<?= $page ?><?= $search_qs ?>"
-                                       class="modern-btn modern-btn-danger modern-btn-sm" title="Delete"
-                                       onclick="return confirm('Delete this record?');">
+                                       class="modern-btn modern-btn-danger modern-btn-sm js-confirm"
+                                       data-confirm="Delete this record?"
+                                       title="Delete">
                                         <i class="fas fa-trash"></i> <span class="d-none d-md-inline ms-1">Delete</span>
                                     </a>
                                 </div>
@@ -1203,9 +1173,9 @@ if(isset($_POST['bulk_add_faas'])){
     </div>
 
     <?php if($total_pages > 1): ?>
-    <div class="card-footer bg-transparent">
+    <div class="card-footer">
         <nav aria-label="Page navigation">
-            <ul class="pagination mb-0 justify-content-center flex-wrap" style="gap: 3px;">
+            <ul class="pagination mb-0 justify-content-center flex-wrap">
                 <?php if($page > 1): ?>
                     <li class="page-item">
                         <a class="page-link" href="home.php?tab=faas&barangay=<?= urlencode($selected_barangay) ?>&page=1<?= $search_qs ?>">
@@ -1265,19 +1235,23 @@ if(isset($_POST['bulk_add_faas'])){
 
                 // Add/Edit
                 if(isset($_POST['save_certificate'])){
-                    $name = $_POST['certificate_name'];
-                    $description = $_POST['description'];
-                    $price = $_POST['price'];
-                    $status = $_POST['status'];
-                    $mode = $_POST['mode'];
-                    $original_id = $_POST['original_id'];
+                    $name = $_POST['certificate_name'] ?? '';
+                    $description = $_POST['description'] ?? '';
+                    $price = (float)($_POST['price'] ?? 0);
+                    $status = $_POST['status'] ?? 'active';
+                    $mode = $_POST['mode'] ?? 'add';
+                    $original_id = (int)($_POST['original_id'] ?? 0);
+
                     if($mode=='add'){
                         $stmt = $conn->prepare("INSERT INTO certificates (certificate_name, description, price, status) VALUES (?,?,?,?)");
                         $stmt->bind_param("ssds",$name,$description,$price,$status);
                     } elseif($mode=='edit'){
                         $stmt = $conn->prepare("UPDATE certificates SET certificate_name=?, description=?, price=?, status=? WHERE id=?");
                         $stmt->bind_param("ssdsi",$name,$description,$price,$status,$original_id);
+                    } else {
+                        die("Invalid mode.");
                     }
+
                     $stmt->execute();
                     $stmt->close();
                     header("Location: home.php?tab=certificates&page=$page");
@@ -1290,7 +1264,7 @@ if(isset($_POST['bulk_add_faas'])){
                     $stmt = $conn->prepare("SELECT * FROM certificates WHERE id=?");
                     $stmt->bind_param("i",$id);
                     $stmt->execute();
-                    $edit_row = $stmt->get_result()->fetch_assoc();
+                    $edit_row = $stmt->get_result()->fetch_assoc() ?: [];
                     $stmt->close();
                 }
 
@@ -1298,24 +1272,26 @@ if(isset($_POST['bulk_add_faas'])){
                 $limit = 15;
                 $offset = ($page - 1) * $limit;
                 $count = $conn->query("SELECT COUNT(*) as total FROM certificates");
-                $total_records = $count->fetch_assoc()['total'];
-                $total_pages = ceil($total_records / $limit);
+                $total_records = (int)$count->fetch_assoc()['total'];
+                $total_pages = (int)ceil($total_records / $limit);
+
                 $stmt = $conn->prepare("SELECT * FROM certificates ORDER BY created_at DESC LIMIT ? OFFSET ?");
                 $stmt->bind_param("ii",$limit, $offset);
                 $stmt->execute();
                 $certificates = $stmt->get_result();
             ?>
 
-            <!-- Add/Edit Certificate Form -->
             <?php if($action=='add' || ($action=='edit' && $id)): ?>
             <div class="modern-card mb-4">
-                <div class="card-header" style="background: <?= $action=='add' ? 'linear-gradient(135deg, #28a745, #20c997)' : 'linear-gradient(135deg, #ffc107, #fd7e14)' ?>; color: white;">
-                    <i class="fas fa-<?= $action=='add' ? 'plus' : 'edit' ?>-circle me-2"></i><?= $action=='add' ? 'Add New Certificate' : 'Edit Certificate' ?>
+                <div class="card-header <?= $action=='add' ? 'is-success' : 'is-warning' ?>">
+                    <i class="fas fa-<?= $action=='add' ? 'plus' : 'edit' ?>-circle me-2"></i>
+                    <?= $action=='add' ? 'Add New Certificate' : 'Edit Certificate' ?>
                 </div>
                 <div class="card-body">
                     <form method="POST">
                         <input type="hidden" name="mode" value="<?= $action ?>">
-                        <input type="hidden" name="original_id" value="<?= $edit_row['id'] ?? '' ?>">
+                        <input type="hidden" name="original_id" value="<?= (int)($edit_row['id'] ?? 0) ?>">
+
                         <div class="row g-3">
                             <div class="col-md-6">
                                 <label class="modern-form-label">Certificate Name</label>
@@ -1337,8 +1313,12 @@ if(isset($_POST['bulk_add_faas'])){
                                 <textarea name="description" class="modern-form-control" rows="3"><?= htmlspecialchars($edit_row['description'] ?? '') ?></textarea>
                             </div>
                             <div class="col-md-12 mt-4">
-                                <button type="submit" name="save_certificate" class="modern-btn modern-btn-primary"><i class="fas fa-save me-2"></i> <?= $action=='add' ? 'Save' : 'Update' ?></button>
-                                <a href="home.php?tab=certificates" class="modern-btn modern-btn-secondary ms-2"><i class="fas fa-times me-2"></i> Cancel</a>
+                                <button type="submit" name="save_certificate" class="modern-btn modern-btn-primary">
+                                    <i class="fas fa-save me-2"></i> <?= $action=='add' ? 'Save' : 'Update' ?>
+                                </button>
+                                <a href="home.php?tab=certificates" class="modern-btn modern-btn-secondary ms-2">
+                                    <i class="fas fa-times me-2"></i> Cancel
+                                </a>
                             </div>
                         </div>
                     </form>
@@ -1346,33 +1326,55 @@ if(isset($_POST['bulk_add_faas'])){
             </div>
             <?php endif; ?>
 
-            <!-- Certificates Table -->
             <div class="modern-card">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <span><i class="fas fa-certificate me-2"></i> Certificates Management</span>
-                    <a href="home.php?tab=certificates&action=add" class="modern-btn modern-btn-success modern-btn-sm"><i class="fas fa-plus-circle me-1"></i> Add New Certificate</a>
+                    <a href="home.php?tab=certificates&action=add" class="modern-btn modern-btn-success modern-btn-sm">
+                        <i class="fas fa-plus-circle me-1"></i> Add New Certificate
+                    </a>
                 </div>
+
                 <div class="card-body">
                     <div class="table-responsive">
                         <table class="modern-table">
-                            <thead><tr><th>Certificate Name</th><th>Description</th><th>Price</th><th>Status</th><th>Actions</th></tr></thead>
+                            <thead>
+                                <tr>
+                                    <th>Certificate Name</th>
+                                    <th>Description</th>
+                                    <th>Price</th>
+                                    <th>Status</th>
+                                    <th style="width: 120px;">Actions</th>
+                                </tr>
+                            </thead>
                             <tbody>
                             <?php if($certificates->num_rows > 0): ?>
                                 <?php while($row = $certificates->fetch_assoc()): ?>
                                 <tr>
-                                    <td><?= htmlspecialchars($row['certificate_name']) ?></td>
+                                    <td><?= htmlspecialchars($row['certificate_name'] ?? '-') ?></td>
                                     <td><?= htmlspecialchars(substr($row['description'] ?? '', 0, 50)) . (strlen($row['description'] ?? '') > 50 ? '...' : '') ?></td>
-                                    <td><strong>₱<?= number_format($row['price'],2) ?></strong></td>
-                                    <td><span class="status-badge <?= strtolower($row['status']) ?>"><?= ucfirst($row['status']) ?></span></td>
+                                    <td><strong>₱<?= number_format((float)($row['price'] ?? 0),2) ?></strong></td>
                                     <td>
-                                        <a href="home.php?tab=certificates&action=edit&id=<?= $row['id'] ?>&page=<?= $page ?>" class="modern-btn modern-btn-warning modern-btn-sm" title="Edit"><i class="fas fa-edit"></i></a>
-                                        <a href="home.php?tab=certificates&action=delete&id=<?= $row['id'] ?>&page=<?= $page ?>" class="modern-btn modern-btn-danger modern-btn-sm" title="Delete" onclick="return confirm('Are you sure you want to delete this certificate?');"><i class="fas fa-trash"></i></a>
+                                        <span class="status-badge <?= strtolower((string)($row['status'] ?? 'inactive')) ?>">
+                                            <?= htmlspecialchars(ucfirst((string)($row['status'] ?? 'inactive'))) ?>
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <a href="home.php?tab=certificates&action=edit&id=<?= (int)$row['id'] ?>&page=<?= $page ?>" class="modern-btn modern-btn-warning modern-btn-sm" title="Edit">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+
+                                        <a href="home.php?tab=certificates&action=delete&id=<?= (int)$row['id'] ?>&page=<?= $page ?>"
+                                           class="modern-btn modern-btn-danger modern-btn-sm js-confirm"
+                                           data-confirm="Delete this certificate?"
+                                           title="Delete">
+                                            <i class="fas fa-trash"></i>
+                                        </a>
                                     </td>
                                 </tr>
                                 <?php endwhile; ?>
                             <?php else: ?>
                                 <tr>
-                                    <td colspan="7" class="text-center py-4">
+                                    <td colspan="5" class="text-center py-4">
                                         <div class="empty-state">
                                             <i class="fas fa-certificate"></i>
                                             <p>No certificates found. Click "Add New Certificate" to create one.</p>
@@ -1384,12 +1386,13 @@ if(isset($_POST['bulk_add_faas'])){
                         </table>
                     </div>
 
-                    <!-- Pagination -->
                     <?php if($total_pages > 1): ?>
                     <div class="d-flex flex-column flex-md-row justify-content-between align-items-center mt-4">
-                        <div class="mb-3 mb-md-0"><span class="text-muted">Showing page <?= $page ?> of <?= $total_pages ?> (<?= number_format($total_records) ?> total certificates)</span></div>
+                        <div class="mb-3 mb-md-0">
+                            <span class="text-muted">Showing page <?= $page ?> of <?= $total_pages ?> (<?= number_format($total_records) ?> total certificates)</span>
+                        </div>
                         <nav aria-label="Page navigation">
-                            <ul class="pagination mb-0 flex-wrap" style="gap: 3px;">
+                            <ul class="pagination mb-0 flex-wrap">
                                 <?php if($page > 1): ?>
                                     <li class="page-item"><a class="page-link" href="home.php?tab=certificates&page=1"><i class="fas fa-angle-double-left"></i></a></li>
                                     <li class="page-item"><a class="page-link" href="home.php?tab=certificates&page=<?= $page-1 ?>"><i class="fas fa-chevron-left"></i></a></li>
@@ -1411,486 +1414,411 @@ if(isset($_POST['bulk_add_faas'])){
 
             <?php elseif($tab=='services'):
 
-    $action = $_GET['action'] ?? '';
-    $id = $_GET['id'] ?? '';
-    $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-    if($page < 1) $page = 1;
+                $action = $_GET['action'] ?? '';
+                $id = $_GET['id'] ?? '';
+                $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+                if($page < 1) $page = 1;
 
-    // Delete
-    if($action=='delete' && $id){
-        $stmt = $conn->prepare("DELETE FROM services WHERE id=?");
-        $stmt->bind_param("i",$id);
-        $stmt->execute();
-        $stmt->close();
-        header("Location: home.php?tab=services&page=$page");
-        exit();
-    }
-
-    // Add/Edit
-    if(isset($_POST['save_service'])){
-        $name = trim($_POST['service_name'] ?? '');
-        $description = $_POST['description'] ?? '';
-        $price = (float)($_POST['price'] ?? 0);
-        $status = $_POST['status'] ?? 'active';
-        $mode = $_POST['mode'] ?? 'add';
-        $original_id = (int)($_POST['original_id'] ?? 0);
-
-        if($mode=='add'){
-            $stmt = $conn->prepare("INSERT INTO services (service_name, description, price, status) VALUES (?,?,?,?)");
-            $stmt->bind_param("ssds",$name,$description,$price,$status);
-        } elseif($mode=='edit'){
-            $stmt = $conn->prepare("UPDATE services SET service_name=?, description=?, price=?, status=? WHERE id=?");
-            $stmt->bind_param("ssdsi",$name,$description,$price,$status,$original_id);
-        }
-        $stmt->execute();
-        $stmt->close();
-        header("Location: home.php?tab=services&page=$page");
-        exit();
-    }
-
-    // Fetch edit row
-    $edit_row = [];
-    if($action=='edit' && $id){
-        $stmt = $conn->prepare("SELECT * FROM services WHERE id=?");
-        $stmt->bind_param("i",$id);
-        $stmt->execute();
-        $edit_row = $stmt->get_result()->fetch_assoc();
-        $stmt->close();
-    }
-
-    // Pagination
-    $limit = 15;
-    $offset = ($page - 1) * $limit;
-
-    $count = $conn->query("SELECT COUNT(*) as total FROM services");
-    $total_records = (int)$count->fetch_assoc()['total'];
-    $total_pages = (int)ceil($total_records / $limit);
-
-    $stmt = $conn->prepare("SELECT * FROM services ORDER BY created_at DESC LIMIT ? OFFSET ?");
-    $stmt->bind_param("ii",$limit, $offset);
-    $stmt->execute();
-    $services = $stmt->get_result();
-?>
-
-<!-- Add/Edit Service Form -->
-<?php if($action=='add' || ($action=='edit' && $id)): ?>
-<div class="modern-card mb-4">
-    <div class="card-header" style="background: <?= $action=='add' ? 'linear-gradient(135deg, #28a745, #20c997)' : 'linear-gradient(135deg, #ffc107, #fd7e14)' ?>; color: white;">
-        <i class="fas fa-<?= $action=='add' ? 'plus' : 'edit' ?>-circle me-2"></i><?= $action=='add' ? 'Add New Service' : 'Edit Service' ?>
-    </div>
-    <div class="card-body">
-        <form method="POST">
-            <input type="hidden" name="mode" value="<?= $action ?>">
-            <input type="hidden" name="original_id" value="<?= $edit_row['id'] ?? '' ?>">
-
-            <div class="row g-3">
-                <div class="col-md-6">
-                    <label class="modern-form-label">Service Name</label>
-                    <input type="text" name="service_name" class="modern-form-control"
-                           value="<?= htmlspecialchars($edit_row['service_name'] ?? '') ?>" required>
-                </div>
-
-                <div class="col-md-6">
-                    <label class="modern-form-label">Price (₱)</label>
-                    <input type="number" step="0.01" name="price" class="modern-form-control"
-                           value="<?= htmlspecialchars($edit_row['price'] ?? '0.00') ?>" required>
-                </div>
-
-                <div class="col-md-6">
-                    <label class="modern-form-label">Status</label>
-                    <select name="status" class="modern-form-select" required>
-                        <option value="active" <?= (isset($edit_row['status']) && $edit_row['status']=='active') ? 'selected' : '' ?>>Active</option>
-                        <option value="inactive" <?= (isset($edit_row['status']) && $edit_row['status']=='inactive') ? 'selected' : '' ?>>Inactive</option>
-                    </select>
-                </div>
-
-                <div class="col-md-12">
-                    <label class="modern-form-label">Description</label>
-                    <textarea name="description" class="modern-form-control" rows="3"><?= htmlspecialchars($edit_row['description'] ?? '') ?></textarea>
-                </div>
-
-                <div class="col-md-12 mt-4">
-                    <button type="submit" name="save_service" class="modern-btn modern-btn-primary">
-                        <i class="fas fa-save me-2"></i> <?= $action=='add' ? 'Save' : 'Update' ?>
-                    </button>
-                    <a href="home.php?tab=services" class="modern-btn modern-btn-secondary ms-2">
-                        <i class="fas fa-times me-2"></i> Cancel
-                    </a>
-                </div>
-            </div>
-        </form>
-    </div>
-</div>
-<?php endif; ?>
-
-<!-- Services Table -->
-<div class="modern-card">
-    <div class="card-header d-flex justify-content-between align-items-center">
-        <span><i class="fas fa-concierge-bell me-2"></i> Services Management</span>
-        <a href="home.php?tab=services&action=add" class="modern-btn modern-btn-success modern-btn-sm">
-            <i class="fas fa-plus-circle me-1"></i> Add New Service
-        </a>
-    </div>
-
-    <div class="card-body">
-        <div class="table-responsive">
-            <table class="modern-table">
-                <thead>
-                    <tr>
-                        <th>Service Name</th>
-                        <th>Description</th>
-                        <th>Price</th>
-                        <th>Status</th>
-                        <th style="width: 120px;">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                <?php if($services->num_rows > 0): ?>
-                    <?php while($row = $services->fetch_assoc()): ?>
-                    <tr>
-                        <td><?= htmlspecialchars($row['service_name']) ?></td>
-                        <td><?= htmlspecialchars(substr($row['description'] ?? '', 0, 50)) . (strlen($row['description'] ?? '') > 50 ? '...' : '') ?></td>
-                        <td><strong>₱<?= number_format((float)$row['price'],2) ?></strong></td>
-                        <td>
-                            <span class="status-badge <?= strtolower($row['status']) ?>">
-                                <?= ucfirst($row['status']) ?>
-                            </span>
-                        </td>
-                        <td>
-                            <a href="home.php?tab=services&action=edit&id=<?= (int)$row['id'] ?>&page=<?= $page ?>"
-                               class="modern-btn modern-btn-warning modern-btn-sm" title="Edit">
-                                <i class="fas fa-edit"></i>
-                            </a>
-                            <a href="home.php?tab=services&action=delete&id=<?= (int)$row['id'] ?>&page=<?= $page ?>"
-                               class="modern-btn modern-btn-danger modern-btn-sm" title="Delete"
-                               onclick="return confirm('Are you sure you want to delete this service?');">
-                                <i class="fas fa-trash"></i>
-                            </a>
-                        </td>
-                    </tr>
-                    <?php endwhile; ?>
-                <?php else: ?>
-                    <tr>
-                        <td colspan="5" class="text-center py-4">
-                            <div class="empty-state">
-                                <i class="fas fa-concierge-bell"></i>
-                                <p>No services found. Click "Add New Service" to create one.</p>
-                            </div>
-                        </td>
-                    </tr>
-                <?php endif; ?>
-                </tbody>
-            </table>
-        </div>
-
-        <!-- Pagination -->
-        <?php if($total_pages > 1): ?>
-        <div class="d-flex flex-column flex-md-row justify-content-between align-items-center mt-4">
-            <div class="mb-3 mb-md-0">
-                <span class="text-muted">Showing page <?= $page ?> of <?= $total_pages ?> (<?= number_format($total_records) ?> total services)</span>
-            </div>
-            <nav aria-label="Page navigation">
-                <ul class="pagination mb-0 flex-wrap" style="gap: 3px;">
-                    <?php if($page > 1): ?>
-                        <li class="page-item"><a class="page-link" href="home.php?tab=services&page=1"><i class="fas fa-angle-double-left"></i></a></li>
-                        <li class="page-item"><a class="page-link" href="home.php?tab=services&page=<?= $page-1 ?>"><i class="fas fa-chevron-left"></i></a></li>
-                    <?php endif; ?>
-
-                    <?php for($i = max(1, $page-2); $i <= min($total_pages, $page+2); $i++): ?>
-                        <li class="page-item <?= $i==$page ? 'active' : '' ?>">
-                            <a class="page-link" href="home.php?tab=services&page=<?= $i ?>"><?= $i ?></a>
-                        </li>
-                    <?php endfor; ?>
-
-                    <?php if($page < $total_pages): ?>
-                        <li class="page-item"><a class="page-link" href="home.php?tab=services&page=<?= $page+1 ?>"><i class="fas fa-chevron-right"></i></a></li>
-                        <li class="page-item"><a class="page-link" href="home.php?tab=services&page=<?= $total_pages ?>"><i class="fas fa-angle-double-right"></i></a></li>
-                    <?php endif; ?>
-                </ul>
-            </nav>
-        </div>
-        <?php endif; ?>
-    </div>
-</div>
-
-<?php $stmt->close(); ?>
-
-<?php elseif($tab=='notice_assessment'):
-
-    // current week (Monday-start week)
-    $week_key = (int)$conn->query("SELECT YEARWEEK(CURDATE(), 1) AS wk")->fetch_assoc()['wk'];
-
-    $selected_barangay = $_GET['barangay'] ?? '';
-    $search = trim($_GET['search'] ?? '');
-
-    $where  = "WHERE week_key = ?";
-    $types  = "i";
-    $params = [$week_key];
-
-    // optional filter barangay
-    if($selected_barangay !== ''){
-        $where .= " AND barangay = ?";
-        $types .= "s";
-        $params[] = $selected_barangay;
-    }
-
-    // optional search (owner/arp/pin/location/classification)
-    if($search !== ''){
-        $where .= " AND (
-            declared_owner LIKE CONCAT('%', ?, '%')
-            OR owner_address LIKE CONCAT('%', ?, '%')
-            OR arp_no LIKE CONCAT('%', ?, '%')
-            OR pin_no LIKE CONCAT('%', ?, '%')
-            OR property_location LIKE CONCAT('%', ?, '%')
-            OR classification LIKE CONCAT('%', ?, '%')
-        )";
-        $types .= "ssssss";
-        $params[] = $search;
-        $params[] = $search;
-        $params[] = $search;
-        $params[] = $search;
-        $params[] = $search;
-        $params[] = $search;
-    }
-
-$sql = "
-    SELECT
-        id,
-        owner_key,
-        declared_owner,
-        owner_address,
-        barangay,
-        arp_no,
-        pin_no,
-        property_location,
-        classification,
-        mv,
-        av,
-        created_at
-    FROM notice_of_assessment_logs
-    $where
-    ORDER BY declared_owner ASC, owner_key ASC, created_at DESC
-";
-
-$stmt = $conn->prepare($sql);
-$stmt->bind_param($types, ...$params);
-$stmt->execute();
-$rows = $stmt->get_result();
-?>
-
-<div class="modern-card mb-4">
-    <div class="card-header d-flex justify-content-between align-items-center">
-        <span><i class="fas fa-bullhorn me-2"></i> Notice of Assessment (This Week)</span>
-        <span class="badge bg-primary" style="border-radius: 30px; padding: 8px 14px;">
-            Week Key: <?= $week_key ?>
-        </span>
-    </div>
-    <div class="card-body">
-        <form method="GET" class="row g-3">
-            <input type="hidden" name="tab" value="notice_assessment">
-
-            <div class="col-md-4">
-                <label class="modern-form-label">Barangay</label>
-                <select name="barangay" class="modern-form-select">
-                    <option value="">-- All Barangay --</option>
-                    <?php foreach($allowed_tables as $t): ?>
-                        <option value="<?= $t ?>" <?= $selected_barangay===$t?'selected':'' ?>>
-                            <?= ucwords(str_replace('_',' ',$t)) ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-
-            <div class="col-md-6">
-                <label class="modern-form-label">Search (Owner / Address / ARP / PIN / Location / Class)</label>
-                <input type="text" name="search" class="modern-form-control"
-                       value="<?= htmlspecialchars($search) ?>"
-                       placeholder="e.g. Juan Dela Cruz / ARP / PIN / Location">
-            </div>
-
-            <div class="col-md-2 d-flex align-items-end">
-                <button class="modern-btn modern-btn-primary w-100">
-                    <i class="fas fa-search me-2"></i> Filter
-                </button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<div class="modern-card">
-    <div class="card-header">
-        <i class="fas fa-table me-2"></i> Weekly Logs (Per Owner Table)
-    </div>
-
-    <div class="card-body">
-
-        <?php if($rows->num_rows > 0): ?>
-
-            <?php
-            $current_owner_key = null;
-            $owner_name = '';
-            $owner_address = '';
-            $owner_count = 0;
-
-            function closeOwnerTable(&$owner_count){
-                if($owner_count > 0){
-                    echo '</tbody></table></div>';
-                    echo '</div></div>';
+                if($action=='delete' && $id){
+                    $stmt = $conn->prepare("DELETE FROM services WHERE id=?");
+                    $stmt->bind_param("i",$id);
+                    $stmt->execute();
+                    $stmt->close();
+                    header("Location: home.php?tab=services&page=$page");
+                    exit();
                 }
-                $owner_count = 0;
-            }
+
+                if(isset($_POST['save_service'])){
+                    $name = trim($_POST['service_name'] ?? '');
+                    $description = $_POST['description'] ?? '';
+                    $price = (float)($_POST['price'] ?? 0);
+                    $status = $_POST['status'] ?? 'active';
+                    $mode = $_POST['mode'] ?? 'add';
+                    $original_id = (int)($_POST['original_id'] ?? 0);
+
+                    if($mode=='add'){
+                        $stmt = $conn->prepare("INSERT INTO services (service_name, description, price, status) VALUES (?,?,?,?)");
+                        $stmt->bind_param("ssds",$name,$description,$price,$status);
+                    } elseif($mode=='edit'){
+                        $stmt = $conn->prepare("UPDATE services SET service_name=?, description=?, price=?, status=? WHERE id=?");
+                        $stmt->bind_param("ssdsi",$name,$description,$price,$status,$original_id);
+                    } else {
+                        die("Invalid mode.");
+                    }
+                    $stmt->execute();
+                    $stmt->close();
+                    header("Location: home.php?tab=services&page=$page");
+                    exit();
+                }
+
+                $edit_row = [];
+                if($action=='edit' && $id){
+                    $stmt = $conn->prepare("SELECT * FROM services WHERE id=?");
+                    $stmt->bind_param("i",$id);
+                    $stmt->execute();
+                    $edit_row = $stmt->get_result()->fetch_assoc() ?: [];
+                    $stmt->close();
+                }
+
+                $limit = 15;
+                $offset = ($page - 1) * $limit;
+
+                $count = $conn->query("SELECT COUNT(*) as total FROM services");
+                $total_records = (int)$count->fetch_assoc()['total'];
+                $total_pages = (int)ceil($total_records / $limit);
+
+                $stmt = $conn->prepare("SELECT * FROM services ORDER BY created_at DESC LIMIT ? OFFSET ?");
+                $stmt->bind_param("ii",$limit, $offset);
+                $stmt->execute();
+                $services = $stmt->get_result();
             ?>
 
-            <?php while($r = $rows->fetch_assoc()): ?>
+            <?php if($action=='add' || ($action=='edit' && $id)): ?>
+            <div class="modern-card mb-4">
+                <div class="card-header <?= $action=='add' ? 'is-success' : 'is-warning' ?>">
+                    <i class="fas fa-<?= $action=='add' ? 'plus' : 'edit' ?>-circle me-2"></i>
+                    <?= $action=='add' ? 'Add New Service' : 'Edit Service' ?>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        <input type="hidden" name="mode" value="<?= $action ?>">
+                        <input type="hidden" name="original_id" value="<?= (int)($edit_row['id'] ?? 0) ?>">
 
-                <?php
-                if($current_owner_key !== $r['owner_key']){
-
-                    if($current_owner_key !== null){
-                        closeOwnerTable($owner_count);
-                    }
-
-                    $current_owner_key = $r['owner_key'];
-                    $owner_name = $r['declared_owner'] ?? '';
-                    $owner_address = $r['owner_address'] ?? '';
-                    ?>
-                    <div class="modern-card mb-4" style="border:1px solid rgba(0,0,0,.08);">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <div>
-                                <div class="fw-bold">
-                                    <?= htmlspecialchars($owner_name) ?>
-                                </div>
-                                <small class="text-muted">
-                                    <?= htmlspecialchars($owner_address ?: '-') ?>
-                                </small>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="modern-form-label">Service Name</label>
+                                <input type="text" name="service_name" class="modern-form-control"
+                                       value="<?= htmlspecialchars($edit_row['service_name'] ?? '') ?>" required>
                             </div>
 
-                            <div class="d-flex gap-2 align-items-center">
-                                <span class="badge bg-primary" id="count-badge-<?= htmlspecialchars($current_owner_key) ?>">
-                                    0 Entry
-                                </span>
+                            <div class="col-md-6">
+                                <label class="modern-form-label">Price (₱)</label>
+                                <input type="number" step="0.01" name="price" class="modern-form-control"
+                                       value="<?= htmlspecialchars($edit_row['price'] ?? '0.00') ?>" required>
+                            </div>
 
-                                <a class="modern-btn modern-btn-success modern-btn-sm"
-                                   href="export_noa_excel.php?week_key=<?= $week_key ?>&owner_key=<?= urlencode($current_owner_key) ?>">
-                                    <i class="fas fa-download me-1"></i> Export
+                            <div class="col-md-6">
+                                <label class="modern-form-label">Status</label>
+                                <select name="status" class="modern-form-select" required>
+                                    <option value="active" <?= (isset($edit_row['status']) && $edit_row['status']=='active') ? 'selected' : '' ?>>Active</option>
+                                    <option value="inactive" <?= (isset($edit_row['status']) && $edit_row['status']=='inactive') ? 'selected' : '' ?>>Inactive</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-12">
+                                <label class="modern-form-label">Description</label>
+                                <textarea name="description" class="modern-form-control" rows="3"><?= htmlspecialchars($edit_row['description'] ?? '') ?></textarea>
+                            </div>
+
+                            <div class="col-md-12 mt-4">
+                                <button type="submit" name="save_service" class="modern-btn modern-btn-primary">
+                                    <i class="fas fa-save me-2"></i> <?= $action=='add' ? 'Save' : 'Update' ?>
+                                </button>
+                                <a href="home.php?tab=services" class="modern-btn modern-btn-secondary ms-2">
+                                    <i class="fas fa-times me-2"></i> Cancel
                                 </a>
                             </div>
                         </div>
+                    </form>
+                </div>
+            </div>
+            <?php endif; ?>
 
-                        <div class="card-body">
-                            <div class="table-responsive">
-                                <table class="modern-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Barangay</th>
-                                            <th>ARP No.</th>
-                                            <th>PIN No.</th>
-                                            <th>Property Location</th>
-                                            <th>Classification</th>
-                                            <th>MV</th>
-                                            <th>AV</th>
-                                            <th>Added</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                    <?php
+            <div class="modern-card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span><i class="fas fa-concierge-bell me-2"></i> Services Management</span>
+                    <a href="home.php?tab=services&action=add" class="modern-btn modern-btn-success modern-btn-sm">
+                        <i class="fas fa-plus-circle me-1"></i> Add New Service
+                    </a>
+                </div>
+
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="modern-table">
+                            <thead>
+                                <tr>
+                                    <th>Service Name</th>
+                                    <th>Description</th>
+                                    <th>Price</th>
+                                    <th>Status</th>
+                                    <th style="width: 120px;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            <?php if($services->num_rows > 0): ?>
+                                <?php while($row = $services->fetch_assoc()): ?>
+                                <tr>
+                                    <td><?= htmlspecialchars($row['service_name'] ?? '-') ?></td>
+                                    <td><?= htmlspecialchars(substr($row['description'] ?? '', 0, 50)) . (strlen($row['description'] ?? '') > 50 ? '...' : '') ?></td>
+                                    <td><strong>₱<?= number_format((float)($row['price'] ?? 0),2) ?></strong></td>
+                                    <td>
+                                        <span class="status-badge <?= strtolower((string)($row['status'] ?? 'inactive')) ?>">
+                                            <?= htmlspecialchars(ucfirst((string)($row['status'] ?? 'inactive'))) ?>
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <a href="home.php?tab=services&action=edit&id=<?= (int)$row['id'] ?>&page=<?= $page ?>"
+                                           class="modern-btn modern-btn-warning modern-btn-sm" title="Edit">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+
+                                        <a href="home.php?tab=services&action=delete&id=<?= (int)$row['id'] ?>&page=<?= $page ?>"
+                                           class="modern-btn modern-btn-danger modern-btn-sm js-confirm"
+                                           data-confirm="Delete this service?"
+                                           title="Delete">
+                                            <i class="fas fa-trash"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                <?php endwhile; ?>
+                            <?php else: ?>
+                                <tr>
+                                    <td colspan="5" class="text-center py-4">
+                                        <div class="empty-state">
+                                            <i class="fas fa-concierge-bell"></i>
+                                            <p>No services found. Click "Add New Service" to create one.</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <?php if($total_pages > 1): ?>
+                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-center mt-4">
+                        <div class="mb-3 mb-md-0">
+                            <span class="text-muted">Showing page <?= $page ?> of <?= $total_pages ?> (<?= number_format($total_records) ?> total services)</span>
+                        </div>
+                        <nav aria-label="Page navigation">
+                            <ul class="pagination mb-0 flex-wrap">
+                                <?php if($page > 1): ?>
+                                    <li class="page-item"><a class="page-link" href="home.php?tab=services&page=1"><i class="fas fa-angle-double-left"></i></a></li>
+                                    <li class="page-item"><a class="page-link" href="home.php?tab=services&page=<?= $page-1 ?>"><i class="fas fa-chevron-left"></i></a></li>
+                                <?php endif; ?>
+
+                                <?php for($i = max(1, $page-2); $i <= min($total_pages, $page+2); $i++): ?>
+                                    <li class="page-item <?= $i==$page ? 'active' : '' ?>">
+                                        <a class="page-link" href="home.php?tab=services&page=<?= $i ?>"><?= $i ?></a>
+                                    </li>
+                                <?php endfor; ?>
+
+                                <?php if($page < $total_pages): ?>
+                                    <li class="page-item"><a class="page-link" href="home.php?tab=services&page=<?= $page+1 ?>"><i class="fas fa-chevron-right"></i></a></li>
+                                    <li class="page-item"><a class="page-link" href="home.php?tab=services&page=<?= $total_pages ?>"><i class="fas fa-angle-double-right"></i></a></li>
+                                <?php endif; ?>
+                            </ul>
+                        </nav>
+                    </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+            <?php $stmt->close(); ?>
+
+            <?php elseif($tab=='notice_assessment'):
+
+                $week_key = (int)$conn->query("SELECT YEARWEEK(CURDATE(), 1) AS wk")->fetch_assoc()['wk'];
+
+                $selected_barangay = $_GET['barangay'] ?? '';
+                $search = trim($_GET['search'] ?? '');
+
+                $where  = "WHERE week_key = ?";
+                $types  = "i";
+                $params = [$week_key];
+
+                if($selected_barangay !== ''){
+                    $where .= " AND barangay = ?";
+                    $types .= "s";
+                    $params[] = $selected_barangay;
                 }
 
-                $owner_count++;
-                ?>
+                if($search !== ''){
+                    $where .= " AND (
+                        declared_owner LIKE CONCAT('%', ?, '%')
+                        OR owner_address LIKE CONCAT('%', ?, '%')
+                        OR arp_no LIKE CONCAT('%', ?, '%')
+                        OR pin_no LIKE CONCAT('%', ?, '%')
+                        OR property_location LIKE CONCAT('%', ?, '%')
+                        OR classification LIKE CONCAT('%', ?, '%')
+                    )";
+                    $types .= "ssssss";
+                    array_push($params, $search, $search, $search, $search, $search, $search);
+                }
 
-                <tr>
-                    <td><?= htmlspecialchars(ucwords(str_replace('_',' ', $r['barangay'] ?? '-'))) ?></td>
-                    <td><?= htmlspecialchars($r['arp_no'] ?? '-') ?></td>
-                    <td><?= htmlspecialchars($r['pin_no'] ?? '-') ?></td>
-                    <td><?= htmlspecialchars($r['property_location'] ?? '-') ?></td>
-                    <td><?= htmlspecialchars($r['classification'] ?? '-') ?></td>
+                $sql = "
+                    SELECT
+                        id,
+                        owner_key,
+                        declared_owner,
+                        owner_address,
+                        barangay,
+                        arp_no,
+                        pin_no,
+                        property_location,
+                        classification,
+                        mv,
+                        av,
+                        created_at
+                    FROM notice_of_assessment_logs
+                    $where
+                    ORDER BY declared_owner ASC, owner_key ASC, created_at DESC
+                ";
 
-                    <td><strong>₱<?= number_format((float)($r['mv'] ?? 0), 2) ?></strong></td>
-                    <td><strong>₱<?= number_format((float)($r['av'] ?? 0), 2) ?></strong></td>
+                $stmt = $conn->prepare($sql);
+                $stmt->bind_param($types, ...$params);
+                $stmt->execute();
+                $rows = $stmt->get_result();
 
-                    <td><?= !empty($r['created_at']) ? date('M d, Y h:i A', strtotime($r['created_at'])) : '-' ?></td>
-                </tr>
+                $groups = [];
+                while($r = $rows->fetch_assoc()){
+                    $okey = (string)($r['owner_key'] ?? '');
+                    if($okey === '') $okey = 'unknown';
 
-                <script>
-                    (function(){
-                        const el = document.getElementById("count-badge-<?= htmlspecialchars($current_owner_key) ?>");
-                        if(el){
-                            el.textContent = "<?= (int)$owner_count ?> <?= ((int)$owner_count===1?'Entry':'Entries') ?>";
-                        }
-                    })();
-                </script>
+                    if(!isset($groups[$okey])){
+                        $groups[$okey] = [
+                            'owner_key' => $okey,
+                            'declared_owner' => (string)($r['declared_owner'] ?? ''),
+                            'owner_address' => (string)($r['owner_address'] ?? ''),
+                            'items' => []
+                        ];
+                    }
+                    $groups[$okey]['items'][] = $r;
+                }
+            ?>
 
-            <?php endwhile; ?>
+            <div class="modern-card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span><i class="fas fa-bullhorn me-2"></i> Notice of Assessment (This Week)</span>
+                    <span class="badge bg-primary badge-pill">
+                        Week Key: <?= (int)$week_key ?>
+                    </span>
+                </div>
+                <div class="card-body">
+                    <form method="GET" class="row g-3">
+                        <input type="hidden" name="tab" value="notice_assessment">
 
-            <?php closeOwnerTable($owner_count); ?>
+                        <div class="col-md-4">
+                            <label class="modern-form-label">Barangay</label>
+                            <select name="barangay" class="modern-form-select">
+                                <option value="">-- All Barangay --</option>
+                                <?php foreach($allowed_tables as $t): ?>
+                                    <option value="<?= $t ?>" <?= $selected_barangay===$t?'selected':'' ?>>
+                                        <?= ucwords(str_replace('_',' ',$t)) ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
 
-        <?php else: ?>
-            <div class="empty-state text-center py-4">
-                <i class="fas fa-bullhorn"></i>
-                <p>No logs found for this week.</p>
+                        <div class="col-md-6">
+                            <label class="modern-form-label">Search (Owner / Address / ARP / PIN / Location / Class)</label>
+                            <input type="text" name="search" class="modern-form-control"
+                                   value="<?= htmlspecialchars($search) ?>"
+                                   placeholder="e.g. Juan Dela Cruz / ARP / PIN / Location">
+                        </div>
+
+                        <div class="col-md-2 d-flex align-items-end">
+                            <button class="modern-btn modern-btn-primary w-100" type="submit">
+                                <i class="fas fa-search me-2"></i> Filter
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
-        <?php endif; ?>
 
-    </div>
-</div>
-</div>
+            <div class="modern-card">
+                <div class="card-header">
+                    <i class="fas fa-table me-2"></i> Weekly Logs (Per Owner Table)
+                </div>
 
-<?php
-    $stmt->close();
-?>
+                <div class="card-body">
+                    <?php if(!empty($groups)): ?>
+                        <?php foreach($groups as $g): ?>
+                            <?php
+                                $owner_key = $g['owner_key'];
+                                $owner_name = $g['declared_owner'] ?: '-';
+                                $owner_address = $g['owner_address'] ?: '-';
+                                $count_items = count($g['items']);
+                            ?>
+                            <div class="modern-card mb-4">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <div class="fw-bold"><?= htmlspecialchars($owner_name) ?></div>
+                                        <small class="text-muted"><?= htmlspecialchars($owner_address) ?></small>
+                                    </div>
 
-<?php endif; ?>
-        </div>
+                                    <div class="d-flex gap-2 align-items-center">
+                                        <span class="badge bg-primary badge-pill">
+                                            <?= (int)$count_items ?> <?= $count_items===1?'Entry':'Entries' ?>
+                                        </span>
+
+                                        <a class="modern-btn modern-btn-success modern-btn-sm"
+                                           href="export_noa_excel.php?week_key=<?= (int)$week_key ?>&owner_key=<?= urlencode($owner_key) ?>">
+                                            <i class="fas fa-download me-1"></i> Export
+                                        </a>
+                                    </div>
+                                </div>
+
+                                <div class="card-body">
+                                    <div class="table-responsive">
+                                        <table class="modern-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Barangay</th>
+                                                    <th>ARP No.</th>
+                                                    <th>PIN No.</th>
+                                                    <th>Property Location</th>
+                                                    <th>Classification</th>
+                                                    <th>MV</th>
+                                                    <th>AV</th>
+                                                    <th>Added</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                            <?php foreach($g['items'] as $r): ?>
+                                                <tr>
+                                                    <td><?= htmlspecialchars(ucwords(str_replace('_',' ', $r['barangay'] ?? '-'))) ?></td>
+                                                    <td><?= htmlspecialchars($r['arp_no'] ?? '-') ?></td>
+                                                    <td><?= htmlspecialchars($r['pin_no'] ?? '-') ?></td>
+                                                    <td><?= htmlspecialchars($r['property_location'] ?? '-') ?></td>
+                                                    <td><?= htmlspecialchars($r['classification'] ?? '-') ?></td>
+                                                    <td><strong>₱<?= number_format((float)($r['mv'] ?? 0), 2) ?></strong></td>
+                                                    <td><strong>₱<?= number_format((float)($r['av'] ?? 0), 2) ?></strong></td>
+                                                    <td><?= !empty($r['created_at']) ? date('M d, Y h:i A', strtotime($r['created_at'])) : '-' ?></td>
+                                                </tr>
+                                            <?php endforeach; ?>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <div class="empty-state text-center py-4">
+                            <i class="fas fa-bullhorn"></i>
+                            <p>No logs found for this week.</p>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+            <?php $stmt->close(); ?>
+
+            <?php endif; ?>
+
+        </div><!-- /.content-area -->
     </main>
-</div>
+</div><!-- /.wrapper -->
 
-<!-- Required Scripts -->
-<script src="../assets/js/jquery-3.7.1.min.js"></script>
-<script src="../assets/js/datatables.min.js"></script>
-<script src="../assets/js/bootstrap.bundle.min.js"></script>
+<!-- Required Scripts (LOCAL) -->
+<script src="../assets/js/jquery-3.7.1.min.js" defer></script>
+<script src="../assets/js/datatables.min.js" defer></script>
+<script src="../assets/js/bootstrap.bundle.min.js" defer></script>
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const menuToggle = document.getElementById('menuToggle');
-    const sidebar = document.getElementById('sidebar');
-    const mainContent = document.getElementById('mainContent');
+<!-- Optional: If you already have admin.js handling confirm + bulk rows, keep it.
+     If not, tell me and I’ll drop a CSP-safe external admin.js file version. -->
+<!-- <script src="../assets/js/admin.js" defer></script> -->
 
-    // Toggle sidebar
-    menuToggle?.addEventListener('click', () => {
-        sidebar.classList.toggle('collapsed');
-        mainContent.classList.toggle('expanded');
-    });
-
-    // Auto-collapse on mobile
-    const handleResize = () => {
-        if (window.innerWidth <= 992) {
-            sidebar.classList.add('collapsed');
-            mainContent.classList.add('expanded');
-        } else {
-            sidebar.classList.remove('collapsed');
-            mainContent.classList.remove('expanded');
-        }
-    };
-    handleResize();
-    window.addEventListener('resize', handleResize);
-
-    // Show scroll hints for wide tables
-    const checkScroll = () => {
-        document.querySelectorAll('.scrollable-container').forEach(container => {
-            const hint = container.parentElement.querySelector('.scroll-hint');
-            if (hint) hint.style.display = (container.scrollWidth > container.clientWidth) ? 'flex' : 'none';
-        });
-    };
-    checkScroll();
-    window.addEventListener('resize', checkScroll);
-});
-
-// Optional: Initialize DataTables if needed
-$(document).ready(function() {
-    // $('.modern-table').DataTable({ paging: false, searching: true });
-});
-</script>
 </body>
 </html>
 <?php ob_end_flush(); ?>

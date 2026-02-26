@@ -25,7 +25,7 @@ $certificates = [
     'no_improvement' => 'Certificate of No Improvement',
     'no_declared'    => 'Certificate of No Declared Property',
     'total_land'     => 'Total Land Holding',
-    'actual_use'     => 'Actual Location', 
+    'actual_use'     => 'Actual Location',
 ];
 
 if (isset($_POST['generate'])) {
@@ -39,12 +39,10 @@ if (isset($_POST['generate'])) {
     // validations
     if (!isset($certificates[$cert_type])) $errors[] = "Invalid certificate type.";
 
-    // For Total Land Holding: require owner name (barangay + arp not required)
     if ($cert_type === 'total_land') {
         if ($owner_name === '') $errors[] = "Owner name is required for Total Land Holding.";
     } else {
-        // For other certs: require barangay + arp
-        if (!in_array($barangay, $allowed_tables)) $errors[] = "Invalid barangay.";
+        if (!in_array($barangay, $allowed_tables, true)) $errors[] = "Invalid barangay.";
         if ($arp_no === '') $errors[] = "ARP No is required.";
     }
 
@@ -55,10 +53,8 @@ if (isset($_POST['generate'])) {
         // ==========================
         // FETCH DATA PER CERT TYPE
         // ==========================
-
         if ($cert_type === 'total_land') {
 
-            // Search in master table by owner (and optional address)
             $nameLike = "%{$owner_name}%";
 
             if ($owner_addressF !== '') {
@@ -101,9 +97,6 @@ if (isset($_POST['generate'])) {
             $picked_owner = null;
 
             while ($r = $res->fetch_assoc()) {
-                // If name-only search returns multiple different owners,
-                // we lock to the first owner we see to avoid mixing.
-                // (Best practice: use address filter to avoid duplicates.)
                 if ($picked_owner === null) {
                     $picked_owner = [
                         'declared_owner' => $r['declared_owner'],
@@ -111,7 +104,7 @@ if (isset($_POST['generate'])) {
                     ];
                 }
 
-                // Only include rows for the picked owner (avoid mixing same-name people)
+                // avoid mixing same-name persons
                 if ($r['declared_owner'] === $picked_owner['declared_owner'] &&
                     $r['owner_address'] === $picked_owner['owner_address']) {
                     $holdings[] = $r;
@@ -130,7 +123,6 @@ if (isset($_POST['generate'])) {
 
         } else {
 
-            // For other certs: fetch from selected barangay table by ARP
             $stmt = $conn->prepare("SELECT * FROM `$barangay` WHERE `ARP_No.` = ?");
             $stmt->bind_param("s", $arp_no);
             $stmt->execute();
@@ -149,9 +141,9 @@ if (isset($_POST['generate'])) {
 
             switch ($cert_type) {
 
-                case 'tax_dec':
+                case 'tax_dec': {
                     $template_path = '../templates/tax_declaration_template.docx';
-                    if(!file_exists($template_path)) die("Template not found: $template_path");
+                    if(!file_exists($template_path)) { $errors[] = "Template not found: $template_path"; break; }
 
                     $arp_final = $data['ARP_No.'] ?? '';
                     $cancels_final = '';
@@ -180,14 +172,16 @@ if (isset($_POST['generate'])) {
 
                     $filename = "Tax_Declaration_" . ($data['ARP_No.'] ?? 'record') . ".docx";
 
+                    ob_clean();
+                    header('Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document');
                     header("Content-Disposition: attachment; filename=\"$filename\"");
-                    header("Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document");
                     $template->saveAs("php://output");
                     exit;
+                }
 
-                case 'no_improvement':
+                case 'no_improvement': {
                     $template_path = '../templates/no_improvement_template.docx';
-                    if(!file_exists($template_path)) die("Template not found: $template_path");
+                    if(!file_exists($template_path)) { $errors[] = "Template not found: $template_path"; break; }
 
                     $template = new TemplateProcessor($template_path);
 
@@ -208,14 +202,16 @@ if (isset($_POST['generate'])) {
 
                     $filename = "No_Improvement_" . ($data['ARP_No.'] ?? 'record') . ".docx";
 
+                    ob_clean();
+                    header('Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document');
                     header("Content-Disposition: attachment; filename=\"$filename\"");
-                    header("Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document");
                     $template->saveAs("php://output");
                     exit;
+                }
 
-                case 'no_declared':
+                case 'no_declared': {
                     $template_path = '../templates/no_declared_template.docx';
-                    if(!file_exists($template_path)) die("Template not found: $template_path");
+                    if(!file_exists($template_path)) { $errors[] = "Template not found: $template_path"; break; }
 
                     $template = new TemplateProcessor($template_path);
 
@@ -228,120 +224,101 @@ if (isset($_POST['generate'])) {
 
                     $filename = "No_Declared_" . (($data['declared_owner'] ?? 'record')) . ".docx";
 
+                    ob_clean();
+                    header('Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document');
                     header("Content-Disposition: attachment; filename=\"$filename\"");
-                    header("Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document");
                     $template->saveAs("php://output");
                     exit;
+                }
 
-              case 'total_land':
+                case 'total_land': {
+                    $template_path = '../templates/total_land_template.docx';
+                    if(!file_exists($template_path)) { $errors[] = "Template not found: $template_path"; break; }
 
-    $template_path = '../templates/total_land_template.docx';
-    if(!file_exists($template_path)) {
-        $errors[] = "Template not found: $template_path";
-        break;
-    }
+                    if (!isset($data['holdings']) || !is_array($data['holdings']) || count($data['holdings']) === 0) {
+                        $errors[] = "No holdings found for this owner.";
+                        break;
+                    }
 
-    // ✅ ensure holdings exist
-    if (!isset($data['holdings']) || !is_array($data['holdings']) || count($data['holdings']) === 0) {
-        $errors[] = "No holdings found for this owner.";
-        break;
-    }
+                    $template = new TemplateProcessor($template_path);
 
-    $template = new TemplateProcessor($template_path);
+                    $template->setValue('declared_owner', $data['declared_owner'] ?? '');
+                    $template->setValue('owner_address', $data['owner_address'] ?? '');
 
-    // header fields
-    $template->setValue('declared_owner', $data['declared_owner'] ?? '');
-    $template->setValue('owner_address', $data['owner_address'] ?? '');
+                    $template->setValue('day', date('d'));
+                    $template->setValue('month', date('F'));
+                    $template->setValue('year', date('Y'));
 
-    $template->setValue('day', date('d'));
-    $template->setValue('month', date('F'));
-    $template->setValue('year', date('Y'));
+                    $holdings = $data['holdings'];
+                    $count = count($holdings);
 
-    $holdings = $data['holdings'];
-    $count = count($holdings);
+                    $template->cloneRow('td_no', $count);
 
-    // ✅ clone table rows
-    $template->cloneRow('td_no', $count);
+                    for ($i = 1; $i <= $count; $i++) {
+                        $row = $holdings[$i - 1];
+                        $template->setValue("td_no#$i", $row['td_no'] ?? '');
+                        $template->setValue("property_location#$i", $row['property_location'] ?? '');
+                        $template->setValue("area#$i", $row['area'] ?? '');
+                        $template->setValue("classification#$i", $row['classification'] ?? '');
+                        $template->setValue("mv#$i", $row['mv'] ?? '');
+                        $template->setValue("av#$i", $row['av'] ?? '');
+                    }
 
-    for ($i = 1; $i <= $count; $i++) {
-        $row = $holdings[$i - 1];
+                    $safeOwner = preg_replace('/[^A-Za-z0-9_\- ]/', '', $data['declared_owner'] ?? '');
+                    $safeOwner = str_replace(' ', '_', trim($safeOwner));
+                    $filename = "Total_Land_Holding_" . ($safeOwner ?: 'record') . ".docx";
 
-        // td_no is from SELECT `ARP_No.` AS td_no
-        $template->setValue("td_no#$i", $row['td_no'] ?? '');
-        $template->setValue("property_location#$i", $row['property_location'] ?? '');
-        $template->setValue("area#$i", $row['area'] ?? '');
-        $template->setValue("classification#$i", $row['classification'] ?? '');
-        $template->setValue("mv#$i", $row['mv'] ?? '');
-        $template->setValue("av#$i", $row['av'] ?? '');
-    }
+                    ob_clean();
 
-    $safeOwner = preg_replace('/[^A-Za-z0-9_\- ]/', '', $data['declared_owner'] ?? '');
-    $safeOwner = str_replace(' ', '_', trim($safeOwner));
-    $filename = "Total_Land_Holding_" . ($safeOwner ?: 'record') . ".docx";
+                    $tmpFile = tempnam(sys_get_temp_dir(), 'docx_') . '.docx';
+                    $template->saveAs($tmpFile);
 
-    // ✅ clear any output captured by ob_start()
-    ob_clean();
+                    header('Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+                    header('Content-Disposition: attachment; filename="'.$filename.'"');
+                    header('Content-Length: ' . filesize($tmpFile));
+                    header('Cache-Control: must-revalidate');
+                    header('Pragma: public');
 
-    // ✅ save to temp file then stream (prevents corrupt docx)
-    $tmpFile = tempnam(sys_get_temp_dir(), 'docx_') . '.docx';
-    $template->saveAs($tmpFile);
+                    readfile($tmpFile);
+                    @unlink($tmpFile);
+                    exit;
+                }
 
-    header('Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-    header('Content-Disposition: attachment; filename="'.$filename.'"');
-    header('Content-Length: ' . filesize($tmpFile));
-    header('Cache-Control: must-revalidate');
-    header('Pragma: public');
+                case 'actual_use': {
+                    // IMPORTANT: confirm your real template filename here
+                    // If your template is ../templates/actual_use.docx, change this to that.
+                    $template_path = '../templates/actual_location.docx';
+                    if(!file_exists($template_path)) { $errors[] = "Template not found: $template_path"; break; }
 
-    readfile($tmpFile);
-    @unlink($tmpFile);
-    exit;
+                    $template = new TemplateProcessor($template_path);
 
+                    $template->setValue('declared_owner', $data['declared_owner'] ?? '');
+                    $template->setValue('arp_no',         $data['ARP_No.'] ?? '');
+                    $template->setValue('title',          $data['title'] ?? '');
+                    $template->setValue('lot',            $data['lot'] ?? '');
+                    $template->setValue('property_location', $data['property_location'] ?? '');
+                    $template->setValue('area',           $data['area'] ?? '');
 
-                    case 'actual_use':
-    $template_path = '../templates/actual_location.docx';
+                    $template->setValue('day', date('d'));
+                    $template->setValue('month', date('F'));
+                    $template->setValue('year', date('Y'));
 
-    if(!file_exists($template_path)) {
-        die("Template not found: $template_path");
-    }
+                    $filename = "Actual_Location_" . (($data['ARP_No.'] ?? 'record')) . ".docx";
 
-
-    $template = new TemplateProcessor($template_path);
-
-
-    $template->setValue('declared_owner', $data['declared_owner'] ?? '');
-    $template->setValue('arp_no',         $data['ARP_No.'] ?? '');
-    $template->setValue('title',          $data['title'] ?? '');
-    $template->setValue('lot',            $data['lot'] ?? '');
-    $template->setValue('property_location', $data['property_location'] ?? '');
-    $template->setValue('area',           $data['area'] ?? '');
-
-    // Optional date placeholders if your template has them (safe kahit wala)
-    $template->setValue('day', date('d'));
-    $template->setValue('month', date('F'));
-    $template->setValue('year', date('Y'));
-
-    $filename = "Actual_Location_" . (($data['ARP_No.'] ?? 'record')) . ".docx";
-
-    header("Content-Disposition: attachment; filename=\"$filename\"");
-    header("Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document");
-    $template->saveAs("php://output");
-    exit;
+                    ob_clean();
+                    header('Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+                    header("Content-Disposition: attachment; filename=\"$filename\"");
+                    $template->saveAs("php://output");
+                    exit;
+                }
 
                 default:
-                    $errors[] = "Certificate type not implemented yet.";
+                    $errors[] = "Certificate template not yet configured.";
                     break;
             }
         }
     }
 }
-
-$stmt = $conn->prepare("
-    UPDATE requests
-    SET status='PROCESSED'
-    WHERE id=?
-");
-$stmt->bind_param("i",$request_id);
-$stmt->execute();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -349,87 +326,138 @@ $stmt->execute();
     <meta charset="UTF-8">
     <title>Process Certificate</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+
     <link rel="stylesheet" href="../assets/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="../assets/bootstrap/css/process_certificate.css">
 </head>
-<body class="bg-light">
+<body>
 
-<div class="container py-4">
-    <div class="card shadow-sm">
-        <div class="card-header fw-bold">
-            Process Certificate
+<div class="page-wrap">
+    <div class="app-shell w-100">
+
+        <div class="glass">
+
+            <div class="headbar">
+                <div class="title">
+                    <div class="title-badge">PC</div>
+                    <div>
+                        <div>Process Certificate</div>
+                        <p class="subtitle">Generate and download certificate</p>
+                    </div>
+                </div>
+
+                <a href="home.php?tab=requests" class="btn btn-outline-secondary">Back</a>
+            </div>
+
+            <div class="content">
+
+                <?php if (!empty($errors)): ?>
+                    <div class="alert alert-danger">
+                        <ul class="mb-0">
+                            <?php foreach($errors as $e): ?>
+                                <li><?= htmlspecialchars($e) ?></li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </div>
+                <?php endif; ?>
+
+                <div class="row g-3">
+
+                    <div class="col-lg-8">
+                        <div class="form-card">
+                            <div class="card-body">
+
+                                <form method="POST" class="row g-3">
+
+                                    <div class="col-md-6">
+                                        <label class="form-label">Kind of Certification</label>
+                                        <select name="cert_type" class="form-select" required>
+                                            <option value="">-- Select Certificate --</option>
+                                            <?php foreach($certificates as $key => $label): ?>
+                                                <option value="<?= htmlspecialchars($key) ?>"
+                                                    <?= (($_POST['cert_type'] ?? '') === $key) ? 'selected' : '' ?>>
+                                                    <?= htmlspecialchars($label) ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <label class="form-label">Barangay</label>
+                                        <select name="barangay" class="form-select">
+                                            <option value="">-- Select Barangay --</option>
+                                            <?php foreach($allowed_tables as $b): ?>
+                                                <option value="<?= htmlspecialchars($b) ?>"
+                                                    <?= (($_POST['barangay'] ?? '') === $b) ? 'selected' : '' ?>>
+                                                    <?= strtoupper(str_replace('_',' ', $b)) ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                        <div class="help mt-1">
+                                            Required for Tax Dec / No Improvement / No Declared / Actual Location.
+                                            For Total Land Holding, leave blank.
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <label class="form-label">ARP No.</label>
+                                        <input type="text" name="arp_no" class="form-control"
+                                               value="<?= htmlspecialchars($_POST['arp_no'] ?? '') ?>"
+                                               placeholder="Enter ARP No.">
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <label class="form-label">Owner Name (Total Land)</label>
+                                        <input type="text" name="owner_name" class="form-control"
+                                               value="<?= htmlspecialchars($_POST['owner_name'] ?? '') ?>"
+                                               placeholder="e.g. JUAN DELA CRUZ">
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <label class="form-label">Address Filter (optional)</label>
+                                        <input type="text" name="owner_address_filter" class="form-control"
+                                               value="<?= htmlspecialchars($_POST['owner_address_filter'] ?? '') ?>"
+                                               placeholder="optional - helps avoid same names">
+                                    </div>
+
+                                    <div class="col-12 d-flex flex-wrap gap-2">
+                                        <button type="submit" name="generate" class="btn btn-primary">
+                                            Generate &amp; Download
+                                        </button>
+                                        <a href="home.php?tab=requests" class="btn btn-outline-secondary">
+                                            Cancel
+                                        </a>
+                                    </div>
+
+                                </form>
+
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-4">
+                        <div class="grid-note">
+                            <div class="fw-bold mb-2">Quick Guide</div>
+                            <div class="help">
+                                <b>Barangay-based certificates</b><br>
+                                • Select Barangay<br>
+                                • Enter ARP No.<br><br>
+                                <b>Total Land Holding</b><br>
+                                • Enter Owner Name<br>
+                                • Optional Address Filter
+                            </div>
+                        </div>
+                    </div>
+
+                </div><!-- row -->
+
+            </div><!-- content -->
+        </div><!-- glass -->
+
+        <div class="page-footer">
+            © <?= date('Y') ?> Certificate Processing System
         </div>
-        <div class="card-body">
 
-            <?php if (!empty($errors)): ?>
-                <div class="alert alert-danger">
-                    <ul class="mb-0">
-                        <?php foreach($errors as $e): ?>
-                            <li><?= htmlspecialchars($e) ?></li>
-                        <?php endforeach; ?>
-                    </ul>
-                </div>
-            <?php endif; ?>
-
-            <form method="POST" class="row g-3">
-                <div class="col-md-6">
-                    <label class="form-label">Kind of Certification</label>
-                    <select name="cert_type" class="form-select" required>
-                        <option value="">-- Select Certificate --</option>
-                        <?php foreach($certificates as $key => $label): ?>
-                            <option value="<?= htmlspecialchars($key) ?>"
-                                <?= (($_POST['cert_type'] ?? '') === $key) ? 'selected' : '' ?>>
-                                <?= htmlspecialchars($label) ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-
-                <div class="col-md-6">
-                    <label class="form-label">Barangay (required for Tax Dec / No Improvement / No Declared)</label>
-                    <select name="barangay" class="form-select">
-                        <option value="">-- Select Barangay --</option>
-                        <?php foreach($allowed_tables as $b): ?>
-                            <option value="<?= htmlspecialchars($b) ?>"
-                                <?= (($_POST['barangay'] ?? '') === $b) ? 'selected' : '' ?>>
-                                <?= strtoupper(str_replace('_', ' ', $b)) ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                    <div class="form-text">For Total Land Holding, you can leave this blank.</div>
-                </div>
-
-                <div class="col-md-6">
-                    <label class="form-label">ARP No. (for Tax Dec / No Improvement / No Declared)</label>
-                    <input type="text" name="arp_no" class="form-control"
-                           value="<?= htmlspecialchars($_POST['arp_no'] ?? '') ?>"
-                           placeholder="Enter ARP No.">
-                </div>
-
-                <div class="col-md-6">
-                    <label class="form-label">Owner Name (for Total Land Holding)</label>
-                    <input type="text" name="owner_name" class="form-control"
-                           value="<?= htmlspecialchars($_POST['owner_name'] ?? '') ?>"
-                           placeholder="e.g. JUAN DELA CRUZ">
-                </div>
-
-                <div class="col-md-6">
-                    <label class="form-label">Address (optional, for Total Land Holding)</label>
-                    <input type="text" name="owner_address_filter" class="form-control"
-                           value="<?= htmlspecialchars($_POST['owner_address_filter'] ?? '') ?>"
-                           placeholder="optional - helps avoid same names">
-                </div>
-
-                <div class="col-12 d-flex gap-2">
-                    <button type="submit" name="generate" class="btn btn-primary">
-                        Generate & Download
-                    </button>
-                    <a href="home.php?tab=requests" class="btn btn-secondary">
-                        Back to Requests
-                    </a>
-                </div>
-            </form>
-
-        </div>
     </div>
 </div>
 

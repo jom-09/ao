@@ -103,9 +103,8 @@ if($tab == 'dashboard') {
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
           <div class="sidebar-brand">
-            <div class="brand-logos">
-              <img src="../assets/img/sample.png" alt="Logo 1">
-              <img src="../assets/img/sample.png" alt="Logo 2">
+            <div class="brand-logos logo-overlap">
+                <img src="../assets/img/logo3.png" alt="Logo 1" class="brand-logo-img">
             </div>
             <div class="brand-title">iRPTAS</div>
           </div>
@@ -538,7 +537,7 @@ $display_fields_find = [
                     <label class="modern-form-label">Global Search Declared Owner (Master List)</label>
                     <input type="text" name="search_global" class="modern-form-control"
                            value="<?= htmlspecialchars($search_global) ?>"
-                           placeholder="Search owner in land_holdings_master (all locations)">
+                           placeholder="Search owner across all records">
                 </div>
 
                 <div class="col-md-2 col-sm-12 d-flex align-items-end">

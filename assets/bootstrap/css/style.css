@@ -2674,3 +2674,28 @@ summary.summary-toggle:focus-visible {
     border-radius: 4px;
 }
 
+/* ===== LOGIN LOGO FIX ===== */
+
+.login-header{
+    text-align: center;
+}
+
+/* container */
+.brand-icon{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 12px;
+    overflow: hidden; /* prevents overflow */
+}
+
+/* logo image */
+.brand-logo-img{
+    width: 110px;        /* ✅ perfect size */
+    max-width: 100%;
+    height: auto;
+    object-fit: contain;
+
+    display: block;
+    margin: 0 auto;
+}

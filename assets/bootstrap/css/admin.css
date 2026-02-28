@@ -744,3 +744,39 @@ a:focus, button:focus, input:focus, select:focus, textarea:focus{
   margin: 0 !important;
   padding: 0 !important;
 }
+
+/* Logo wrapper */
+.brand-logos.logo-overlap{
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* LOGO (always on top) */
+.brand-logos.logo-overlap .brand-logo-img{
+  position: relative;
+  z-index: 2;          /* 👈 logo above circle */
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+/* White circle BEHIND logo */
+.brand-logos.logo-overlap::after{
+  content: "";
+  position: absolute;
+  width: 70px;         /* slightly bigger than logo */
+  height: 70px;
+  border-radius: 50%;
+  background: #ffffff;
+
+  /* center behind logo */
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+
+  z-index: 1;          /* 👈 send backwards */
+  box-shadow: 0 6px 18px rgba(0,0,0,.15);
+}

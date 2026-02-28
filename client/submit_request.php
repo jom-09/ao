@@ -287,9 +287,6 @@ unset($_SESSION['qr_items'], $_SESSION['qr_cert_labels'], $_SESSION['qr_prefill_
                 <a href="../index.php" class="btn btn-home btn-lg">
                     <i class="bi bi-house me-2"></i>Back to Start
                 </a>
-                <button type="button" class="btn btn-outline-secondary btn-print" id="btnPrint">
-                    <i class="bi bi-printer me-2"></i>Print Receipt
-                </button>
             </div>
 
         </div>

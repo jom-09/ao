@@ -455,7 +455,7 @@ if (isset($_POST['generate'])) {
         </div><!-- glass -->
 
         <div class="page-footer">
-            © <?= date('Y') ?> Certificate Processing System
+            © <?= date('Y') ?> iRPTAS
         </div>
 
     </div>

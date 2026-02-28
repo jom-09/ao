@@ -44,8 +44,8 @@ if (isset($_GET['error'])) {
                         <path d="M10.854 5.146a.5.5 0 0 1 0 .708l-3 3a.5.5 0 0 1-.708 0l-1.5-1.5a.5.5 0 1 1 .708-.708L7.5 7.793l2.646-2.647a.5.5 0 0 1 .708 0z"/>
                     </svg>
                 </div>
-                <h4 class="fw-bold mb-1">T.R.A.C.S</h4>
-                <p class="text-muted small">Tracking & Records Administration Certification System</p>
+                <h4 class="fw-bold mb-1">iRPTAS</h4>
+                <p class="text-muted small">Integrated Real Property Tax Assessment and Collection System</p>
             </div>
 
             <!-- Error Alert -->
@@ -83,7 +83,7 @@ if (isset($_GET['error'])) {
             <!-- Footer -->
             <div class="text-center mt-4 pt-3 border-top">
                 <p class="text-muted small mb-0">
-                    &copy; <?php echo date("Y"); ?> T.R.A.C.S
+                    &copy; <?php echo date("Y"); ?> iRPTAS
                 </p>
             </div>
 

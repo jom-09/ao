@@ -89,7 +89,7 @@ if($tab == 'dashboard') {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Admin Dashboard - T.R.A.C.S</title>
+    <title>Admin Dashboard - iRPTAS</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <link rel="stylesheet" href="../assets/bootstrap/css/bootstrap.min.css">
@@ -107,7 +107,7 @@ if($tab == 'dashboard') {
               <img src="../assets/img/sample.png" alt="Logo 1">
               <img src="../assets/img/sample.png" alt="Logo 2">
             </div>
-            <div class="brand-title">T.R.A.C.S</div>
+            <div class="brand-title">iRPTAS</div>
           </div>
         </div>
 
@@ -265,44 +265,54 @@ if($tab == 'dashboard') {
                             <table class="modern-table">
                                 <thead>
                                     <tr>
-                                        <th>ID</th><th>Client</th><th>Purpose</th><th>Certificates/Services</th>
-                                        <th>Total</th><th>Control No</th><th>Status</th><th>Date</th>
+                                        <th>ID</th>
+<th>Client</th>
+<th>Address</th>
+<th>ARP No.</th>
+<th>Purpose</th>
+<th>Certificates/Services</th>
+<th>Total</th>
+<th>Control No</th>
+<th>Status</th>
+<th>Date</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                 <?php
                                 $sql = "
-                                    SELECT
-                                        r.id,
-                                        CONCAT(c.firstname,' ',c.middlename,' ',c.lastname) AS fullname,
-                                        c.purpose,
-                                        r.total_amount,
-                                        r.control_number,
-                                        r.status,
-                                        r.created_at,
+    SELECT
+        r.id,
+        CONCAT(c.firstname,' ',c.middlename,' ',c.lastname) AS fullname,
+        c.address,
+        r.arp_no,
+        c.purpose,
+        r.total_amount,
+        r.control_number,
+        r.status,
+        r.created_at,
 
-                                        (
-                                            SELECT GROUP_CONCAT(cert.certificate_name SEPARATOR ', ')
-                                            FROM request_items ri
-                                            JOIN certificates cert ON cert.id = ri.certificate_id
-                                            WHERE ri.request_id = r.id
-                                        ) AS certificate_list,
+        (
+            SELECT GROUP_CONCAT(cert.certificate_name SEPARATOR ', ')
+            FROM request_items ri
+            JOIN certificates cert ON cert.id = ri.certificate_id
+            WHERE ri.request_id = r.id
+        ) AS certificate_list,
 
-                                        (
-                                            SELECT GROUP_CONCAT(s.service_name SEPARATOR ', ')
-                                            FROM requested_services rs
-                                            JOIN services s ON s.id = rs.service_id
-                                            WHERE rs.request_id = r.id
-                                        ) AS service_list,
+        (
+            SELECT GROUP_CONCAT(s.service_name SEPARATOR ', ')
+            FROM requested_services rs
+            JOIN services s ON s.id = rs.service_id
+            WHERE rs.request_id = r.id
+        ) AS service_list,
 
-                                        (SELECT COUNT(*) FROM request_items ri WHERE ri.request_id = r.id) AS cert_count,
-                                        (SELECT COUNT(*) FROM requested_services rs WHERE rs.request_id = r.id) AS service_count
+        (SELECT COUNT(*) FROM request_items ri WHERE ri.request_id = r.id) AS cert_count,
+        (SELECT COUNT(*) FROM requested_services rs WHERE rs.request_id = r.id) AS service_count
 
-                                    FROM requests r
-                                    JOIN clients c ON r.client_id = c.id
-                                    WHERE r.status IN ('PENDING','PAID')
-                                    ORDER BY r.created_at DESC
-                                ";
+    FROM requests r
+    JOIN clients c ON r.client_id = c.id
+    WHERE r.status IN ('PENDING','PAID')
+    ORDER BY r.created_at DESC
+";
                                 $result = $conn->query($sql);
 
                                 while($row = $result->fetch_assoc()):
@@ -318,17 +328,19 @@ if($tab == 'dashboard') {
                                 ?>
                                 <tr>
                                     <td>#<?= (int)$row['id'] ?></td>
-                                    <td><?= htmlspecialchars($row['fullname'] ?? '-') ?></td>
-                                    <td><?= htmlspecialchars($row['purpose'] ?? '-') ?></td>
-                                    <td><?= htmlspecialchars($items) ?></td>
-                                    <td><strong>₱<?= number_format((float)$row['total_amount'], 2) ?></strong></td>
-                                    <td><?= htmlspecialchars($row['control_number'] ?? '-') ?></td>
-                                    <td>
-                                        <span class="status-badge <?= strtolower((string)$row['status']) ?>">
-                                            <?= htmlspecialchars((string)$row['status']) ?>
-                                        </span>
-                                    </td>
-                                    <td><?= !empty($row['created_at']) ? date('M d, Y', strtotime($row['created_at'])) : '-' ?></td>
+<td><?= htmlspecialchars($row['fullname'] ?? '-') ?></td>
+<td><?= htmlspecialchars($row['address'] ?? '-') ?></td>
+<td><?= htmlspecialchars($row['arp_no'] ?? '-') ?></td>
+<td><?= htmlspecialchars($row['purpose'] ?? '-') ?></td>
+<td><?= htmlspecialchars($items) ?></td>
+<td><strong>₱<?= number_format((float)$row['total_amount'], 2) ?></strong></td>
+<td><?= htmlspecialchars($row['control_number'] ?? '-') ?></td>
+<td>
+    <span class="status-badge <?= strtolower((string)$row['status']) ?>">
+        <?= htmlspecialchars((string)$row['status']) ?>
+    </span>
+</td>
+<td><?= !empty($row['created_at']) ? date('M d, Y', strtotime($row['created_at'])) : '-' ?></td>
                                 </tr>
                                 <?php endwhile; ?>
                                 </tbody>

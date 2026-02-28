@@ -115,41 +115,42 @@ require_once "../config/database.php";
                 <thead>
                     <tr>
                         <th>ID</th>
-                        <th>Client</th>
-                        <th>Purpose</th>
-                        <th>Certificates / Services</th>
-                        <th>Total</th>
-                        <th>Date</th>
-                        <th>Actions</th>
+<th>Client</th>
+<th>Address</th>
+<th>Purpose</th>
+<th>Certificates / Services</th>
+<th>Total</th>
+<th>Date</th>
+<th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                 <?php
-                // ✅ UPDATED: Pull both certificates and services in ONE query
                 $sql = "
-                    SELECT
-                        r.id,
-                        CONCAT(c.firstname,' ',c.middlename,' ',c.lastname) AS fullname,
-                        c.purpose,
-                        r.total_amount,
-                        r.created_at,
-                        (
-                            SELECT GROUP_CONCAT(cert.certificate_name SEPARATOR ', ')
-                            FROM request_items ri
-                            JOIN certificates cert ON cert.id = ri.certificate_id
-                            WHERE ri.request_id = r.id
-                        ) AS certificate_list,
-                        (
-                            SELECT GROUP_CONCAT(s.service_name SEPARATOR ', ')
-                            FROM requested_services rs
-                            JOIN services s ON s.id = rs.service_id
-                            WHERE rs.request_id = r.id
-                        ) AS service_list
-                    FROM requests r
-                    JOIN clients c ON r.client_id = c.id
-                    WHERE r.status='PENDING'
-                    ORDER BY r.created_at DESC
-                ";
+    SELECT
+        r.id,
+        CONCAT(c.firstname,' ',c.middlename,' ',c.lastname) AS fullname,
+        c.address,
+        c.purpose,
+        r.total_amount,
+        r.created_at,
+        (
+            SELECT GROUP_CONCAT(cert.certificate_name SEPARATOR ', ')
+            FROM request_items ri
+            JOIN certificates cert ON cert.id = ri.certificate_id
+            WHERE ri.request_id = r.id
+        ) AS certificate_list,
+        (
+            SELECT GROUP_CONCAT(s.service_name SEPARATOR ', ')
+            FROM requested_services rs
+            JOIN services s ON s.id = rs.service_id
+            WHERE rs.request_id = r.id
+        ) AS service_list
+    FROM requests r
+    JOIN clients c ON r.client_id = c.id
+    WHERE r.status='PENDING'
+    ORDER BY r.created_at DESC
+";
                 $result = $conn->query($sql);
 
                 while($row=$result->fetch_assoc()):
@@ -163,6 +164,7 @@ require_once "../config/database.php";
                     <tr>
                         <td><span class="id-badge">#<?php echo (int)$row['id']; ?></span></td>
                         <td><span class="client-name"><?php echo htmlspecialchars($row['fullname']); ?></span></td>
+                        <td><?php echo htmlspecialchars($row['address'] ?? ''); ?></td>
                         <td><?php echo htmlspecialchars($row['purpose']); ?></td>
                         <td><span class="certs-list"><?php echo htmlspecialchars($items); ?></span></td>
                         <td><span class="amount">₱<?php echo number_format((float)$row['total_amount'],2); ?></span></td>
@@ -203,44 +205,46 @@ require_once "../config/database.php";
                 <thead>
                     <tr>
                         <th>ID</th>
-                        <th>Client</th>
-                        <th>Purpose</th>
-                        <th>Certificates / Services</th>
-                        <th>Total</th>
-                        <th>Control No</th>
-                        <th>Status</th>
-                        <th>Date</th>
+<th>Client</th>
+<th>Address</th>
+<th>Purpose</th>
+<th>Certificates / Services</th>
+<th>Total</th>
+<th>Control No</th>
+<th>Status</th>
+<th>Date</th>
                     </tr>
                 </thead>
                 <tbody>
                 <?php
 
                 $sql2 = "
-                    SELECT
-                        r.id,
-                        CONCAT(c.firstname,' ',c.middlename,' ',c.lastname) AS fullname,
-                        c.purpose,
-                        r.total_amount,
-                        r.control_number,
-                        r.status,
-                        r.paid_at,
-                        (
-                            SELECT GROUP_CONCAT(cert.certificate_name SEPARATOR ', ')
-                            FROM request_items ri
-                            JOIN certificates cert ON cert.id = ri.certificate_id
-                            WHERE ri.request_id = r.id
-                        ) AS certificate_list,
-                        (
-                            SELECT GROUP_CONCAT(s.service_name SEPARATOR ', ')
-                            FROM requested_services rs
-                            JOIN services s ON s.id = rs.service_id
-                            WHERE rs.request_id = r.id
-                        ) AS service_list
-                    FROM requests r
-                    JOIN clients c ON r.client_id = c.id
-                    WHERE r.status IN('PAID','DECLINED')
-                    ORDER BY r.created_at DESC
-                ";
+    SELECT
+        r.id,
+        CONCAT(c.firstname,' ',c.middlename,' ',c.lastname) AS fullname,
+        c.address,
+        c.purpose,
+        r.total_amount,
+        r.control_number,
+        r.status,
+        r.paid_at,
+        (
+            SELECT GROUP_CONCAT(cert.certificate_name SEPARATOR ', ')
+            FROM request_items ri
+            JOIN certificates cert ON cert.id = ri.certificate_id
+            WHERE ri.request_id = r.id
+        ) AS certificate_list,
+        (
+            SELECT GROUP_CONCAT(s.service_name SEPARATOR ', ')
+            FROM requested_services rs
+            JOIN services s ON s.id = rs.service_id
+            WHERE rs.request_id = r.id
+        ) AS service_list
+    FROM requests r
+    JOIN clients c ON r.client_id = c.id
+    WHERE r.status IN('PAID','DECLINED')
+    ORDER BY r.created_at DESC
+";
                 $result2 = $conn->query($sql2);
 
                 while($row=$result2->fetch_assoc()):
@@ -254,6 +258,7 @@ require_once "../config/database.php";
                     <tr>
                         <td><span class="id-badge">#<?php echo (int)$row['id']; ?></span></td>
                         <td><?php echo htmlspecialchars($row['fullname']); ?></td>
+                        <td><?php echo htmlspecialchars($row['address'] ?? ''); ?></td>
                         <td><?php echo htmlspecialchars($row['purpose']); ?></td>
                         <td><?php echo htmlspecialchars($items2); ?></td>
                         <td><span class="amount">₱<?php echo number_format((float)$row['total_amount'],2); ?></span></td>

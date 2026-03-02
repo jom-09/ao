@@ -267,7 +267,6 @@ if($tab == 'dashboard') {
                                         <th>ID</th>
 <th>Client</th>
 <th>Address</th>
-<th>ARP No.</th>
 <th>Purpose</th>
 <th>Certificates/Services</th>
 <th>Total</th>
@@ -283,7 +282,6 @@ if($tab == 'dashboard') {
         r.id,
         CONCAT(c.firstname,' ',c.middlename,' ',c.lastname) AS fullname,
         c.address,
-        r.arp_no,
         c.purpose,
         r.total_amount,
         r.control_number,
@@ -329,7 +327,6 @@ if($tab == 'dashboard') {
                                     <td>#<?= (int)$row['id'] ?></td>
 <td><?= htmlspecialchars($row['fullname'] ?? '-') ?></td>
 <td><?= htmlspecialchars($row['address'] ?? '-') ?></td>
-<td><?= htmlspecialchars($row['arp_no'] ?? '-') ?></td>
 <td><?= htmlspecialchars($row['purpose'] ?? '-') ?></td>
 <td><?= htmlspecialchars($items) ?></td>
 <td><strong>₱<?= number_format((float)$row['total_amount'], 2) ?></strong></td>

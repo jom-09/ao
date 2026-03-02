@@ -78,24 +78,12 @@ require_once "../config/database.php";
         <div class="table-responsive">
             <table class="modern-table" id="personRecordsTable">
                 <thead>
-                    <tr>
-                        <th>Owner</th>
-                        <th>Address</th>
-                        <th>Property Location</th>
-                        <th>Title</th>
-                        <th>Lot</th>
-                        <th>ARP No.</th>
-                        <th>PIN No.</th>
-                        <th>Classification</th>
-                        <th>Actual Use</th>
-                        <th>Area</th>
-                        <th>MV</th>
-                        <th>AV</th>
-                        <th>Taxability</th>
-                        <th>Effectivity</th>
-                        <th>Cancellation</th>
-                    </tr>
-                </thead>
+  <tr>
+    <th>Owner</th>
+    <th>Address</th>
+    <th>ARP No.</th>
+  </tr>
+</thead>
                 <tbody id="recordsTableBody"></tbody>
             </table>
         </div>
@@ -378,39 +366,30 @@ $(document).ready(function() {
     });
 
     function displayPersonRecords(records) {
-        var tbody = $('#recordsTableBody');
-        tbody.empty();
+  var tbody = $('#recordsTableBody');
+  tbody.empty();
 
-        if(records && records.length > 0) {
-            $('#recordsSection').show();
-            $('#recordCount').text(records.length + ' record(s) found');
+  $('#recordsSection').show();
 
-            $.each(records, function(index, record) {
-                var row = '<tr>' +
-                    '<td>' + (record.declared_owner || '') + '</td>' +
-                    '<td>' + (record.owner_address || '') + '</td>' +
-                    '<td>' + (record.property_location || '') + '</td>' +
-                    '<td>' + (record.title || '') + '</td>' +
-                    '<td>' + (record.lot || '') + '</td>' +
-                    '<td>' + (record['ARP_No.'] || '') + '</td>' +
-                    '<td>' + (record['PIN_No.'] || '') + '</td>' +
-                    '<td>' + (record.classification || '') + '</td>' +
-                    '<td>' + (record.actual_use || '') + '</td>' +
-                    '<td>' + (record.area || '') + '</td>' +
-                    '<td>' + (record.mv || '') + '</td>' +
-                    '<td>' + (record.av || '') + '</td>' +
-                    '<td>' + (record.taxability || '') + '</td>' +
-                    '<td>' + (record.effectivity || '') + '</td>' +
-                    '<td>' + (record.cancellation || '') + '</td>' +
-                '</tr>';
-                tbody.append(row);
-            });
-        } else {
-            $('#recordsSection').show();
-            $('#recordCount').text('No records found');
-            tbody.append('<tr><td colspan="15" class="no-records">No property records found for this owner</td></tr>');
-        }
-    }
+  if (records && records.length > 0 && !records.error) {
+    $('#recordCount').text(records.length + ' record(s) found');
+
+    $.each(records, function(index, record) {
+      var row = '<tr>' +
+        '<td>' + (record.owner || '') + '</td>' +
+        '<td>' + (record.address || '') + '</td>' +
+        '<td>' + (record.arp_no || '') + '</td>' +
+      '</tr>';
+      tbody.append(row);
+    });
+  } else if (records && records.error) {
+    $('#recordCount').text('Error');
+    tbody.append('<tr><td colspan="3" class="no-records">' + records.error + '</td></tr>');
+  } else {
+    $('#recordCount').text('No records found');
+    tbody.append('<tr><td colspan="3" class="no-records">No property records found for this owner</td></tr>');
+  }
+}
 
     $('#personSearch').on('keyup', function(e) {
         if(e.key === 'Enter') {

@@ -3,19 +3,14 @@ require_once "../includes/auth_treasury.php";
 require_once "../config/database.php";
 
 /* ===============================
-   Accept via POST form (ARP + control number)
+   Accept via POST form (Control number only)
 ================================= */
 if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accept_id'], $_POST['control_number'])){
 
     $request_id     = intval($_POST['accept_id']);
-    $arp_no         = trim((string)($_POST['arp_no'] ?? ''));
     $control_number = trim((string)($_POST['control_number'] ?? ''));
 
     // validation
-    if ($arp_no === '') {
-        header("Location: process_request.php?id={$request_id}&error=ARP+No.+is+required");
-        exit();
-    }
     if ($control_number === '') {
         header("Location: process_request.php?id={$request_id}&error=Control+Number+is+required");
         exit();
@@ -24,12 +19,11 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accept_id'], $_POST['c
     $stmt = $conn->prepare("
         UPDATE requests
         SET status='PAID',
-            arp_no=?,
             control_number=?,
             paid_at=NOW()
         WHERE id=?
     ");
-    $stmt->bind_param("ssi", $arp_no, $control_number, $request_id);
+    $stmt->bind_param("si", $control_number, $request_id);
     $stmt->execute();
     $stmt->close();
 
@@ -42,7 +36,12 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accept_id'], $_POST['c
 ================================= */
 if(isset($_GET['decline'])){
     $request_id = intval($_GET['decline']);
-    $stmt = $conn->prepare("UPDATE requests SET status='DECLINED', paid_at=NOW() WHERE id=?");
+
+    $stmt = $conn->prepare("
+        UPDATE requests
+        SET status='DECLINED', paid_at=NOW()
+        WHERE id=?
+    ");
     $stmt->bind_param("i",$request_id);
     $stmt->execute();
     $stmt->close();
@@ -61,11 +60,11 @@ if(isset($_GET['id'])){
                    CONCAT(c.firstname,' ',c.middlename,' ',c.lastname) AS fullname,
                    c.purpose,
                    r.total_amount,
-                   r.arp_no,
                    r.control_number
             FROM requests r
             JOIN clients c ON r.client_id=c.id
             WHERE r.id=?";
+
     $stmt = $conn->prepare($sql);
     $stmt->bind_param("i",$request_id);
     $stmt->execute();
@@ -79,19 +78,23 @@ if(isset($_GET['id'])){
     $request = $res->fetch_assoc();
     $stmt->close();
 
-    // Fetch certificates for this request
+    // Fetch certificates
     $cert_sql = "SELECT ri.id, c.certificate_name, ri.price_at_time
                  FROM request_items ri
                  JOIN certificates c ON ri.certificate_id = c.id
                  WHERE ri.request_id=?";
+
     $stmt2 = $conn->prepare($cert_sql);
     $stmt2->bind_param("i",$request_id);
     $stmt2->execute();
+
     $cert_result = $stmt2->get_result();
     $certificates = [];
+
     while($row = $cert_result->fetch_assoc()){
         $certificates[] = $row;
     }
+
     $stmt2->close();
 
 } else {
@@ -141,7 +144,7 @@ $error = isset($_GET['error']) ? htmlspecialchars($_GET['error']) : '';
 <!-- Accept Form -->
 <form method="POST" onsubmit="return confirm('Are you sure you want to accept this request?');">
 
-  <!-- ✅ ARP No (above control number) -->
+  <!-- ✅ ARP No (above control number)
   <div class="mb-3">
     <label class="form-label">ARP No.</label>
     <input
@@ -152,7 +155,7 @@ $error = isset($_GET['error']) ? htmlspecialchars($_GET['error']) : '';
       value="<?php echo htmlspecialchars((string)($request['arp_no'] ?? '')); ?>"
       placeholder="Enter ARP No..."
     >
-  </div>
+  </div> -->
 
   <div class="mb-3">
     <label class="form-label">Control Number</label>

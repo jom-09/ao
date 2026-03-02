@@ -1,50 +1,58 @@
 <?php
 session_start();
+require_once "../config/database.php";
+//require_once "../includes/csrf.php";
+//require_once "../includes/helpers.php"; // if you have clean_name/clean_phone etc.
 
-function clean_phone($v) {
-    $v = trim($v ?? '');
-    // remove spaces, dashes, parentheses
-    $v = preg_replace('/[\s\-\(\)]/', '', $v);
-    return $v;
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+  header("Location: index.php?error=Invalid+request.");
+  exit();
 }
 
-$firstname  = trim($_POST['firstname'] ?? '');
-$middlename = trim($_POST['middlename'] ?? '');
-$lastname   = trim($_POST['lastname'] ?? '');
-$address    = trim($_POST['address'] ?? '');
-$cp_no      = clean_phone($_POST['cp_no'] ?? '');
-$service    = $_POST['service'] ?? '';
+// If you already have CSRF token in your form, enable this.
+// Otherwise you can comment it out for now.
+// Csrf::verify($_POST['_csrf'] ?? null);
 
-$validService = in_array($service, ['cert','tax','svc'], true);
+$firstname  = trim((string)($_POST['firstname'] ?? ''));
+$middlename = trim((string)($_POST['middlename'] ?? ''));
+$lastname   = trim((string)($_POST['lastname'] ?? ''));
+$address    = trim((string)($_POST['address'] ?? ''));
+$cp_no      = trim((string)($_POST['cp_no'] ?? ''));
+$service    = trim((string)($_POST['service'] ?? ''));
 
-// ✅ validate phone properly
-$validPhone = preg_match('/^(09\d{9}|\+63\d{10})$/', $cp_no);
+if ($firstname === '' || $lastname === '' || $address === '' || $cp_no === '' || $service === '') {
+  header("Location: index.php?error=Please+complete+all+required+fields.");
+  exit();
+}
 
-if ($firstname === '' || $lastname === '' || $address === '' || !$validService || !$validPhone) {
-    header("Location: index.php?error=Please+fill+all+required+fields");
-    exit();
+function normalize($s){
+    return strtoupper(trim(preg_replace('/\s+/', ' ', $s)));
 }
 
 $_SESSION['client_info'] = [
-    'firstname'  => $firstname,
-    'middlename' => $middlename,
-    'lastname'   => $lastname,
-    'address'    => $address,
-    'cp_no'      => $cp_no
+  'last_name'   => normalize($lastname),
+  'first_name'  => normalize($firstname),
+  'middle_name' => normalize($middlename),
+  'address'     => $address,
+  'cp_no'       => $cp_no,
 ];
 
 $_SESSION['selected_service'] = $service;
 
-if ($service === 'cert') {
-    header("Location: select_cert.php");
-    exit();
-}
-
 if ($service === 'tax') {
-    header("Location: thank_you_tax.php");
-    exit();
+  header("Location: pay_tax.php");
+  exit();
 }
 
-// svc
-header("Location: select_service.php");
+if ($service === 'cert') {
+  header("Location: select_certificate.php");
+  exit();
+}
+
+if ($service === 'svc') {
+  header("Location: select_service.php");
+  exit();
+}
+
+header("Location: index.php?error=Invalid+transaction.");
 exit();

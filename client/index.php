@@ -81,37 +81,49 @@ if (isset($_GET['success'])) $success = htmlspecialchars($_GET['success']);
             <form action="route_service.php" method="POST" id="clientForm" novalidate>
                 
 
-                <!-- Name -->
-                <div class="row g-3">
-                    <div class="col-md-4">
-                        <div class="form-floating">
-                            <input type="text" name="firstname" class="form-control" id="firstname"
-                                   placeholder="First Name" required pattern="[A-Za-z\s]{2,50}"
-                                   autocomplete="given-name">
-                            <label for="firstname">First Name</label>
-                            <div class="invalid-feedback">Please enter a valid first name (2-50 letters)</div>
-                        </div>
-                    </div>
+                <!-- Name (LGU FORMAT: LAST, FIRST, MIDDLE) -->
+<div class="row g-3">
 
-                    <div class="col-md-4">
-                        <div class="form-floating">
-                            <input type="text" name="middlename" class="form-control" id="middlename"
-                                   placeholder="Middle Name" pattern="[A-Za-z\s]{0,50}"
-                                   autocomplete="additional-name">
-                            <label for="middlename">Middle Name</label>
-                        </div>
-                    </div>
+    <!-- LAST NAME -->
+    <div class="col-md-4">
+        <div class="form-floating">
+            <input type="text" name="lastname" class="form-control"
+                   id="lastname"
+                   placeholder="Last Name"
+                   required
+                   pattern="[A-Za-z\s]{2,50}">
+            <label>Last Name</label>
+            <div class="invalid-feedback">
+                Enter valid last name
+            </div>
+        </div>
+    </div>
 
-                    <div class="col-md-4">
-                        <div class="form-floating">
-                            <input type="text" name="lastname" class="form-control" id="lastname"
-                                   placeholder="Last Name" required pattern="[A-Za-z\s]{2,50}"
-                                   autocomplete="family-name">
-                            <label for="lastname">Last Name</label>
-                            <div class="invalid-feedback">Please enter a valid last name (2-50 letters)</div>
-                        </div>
-                    </div>
-                </div>
+    <!-- FIRST NAME -->
+    <div class="col-md-4">
+        <div class="form-floating">
+            <input type="text" name="firstname" class="form-control"
+                   id="firstname"
+                   placeholder="First Name"
+                   required
+                   pattern="[A-Za-z\s]{2,50}">
+            <label>First Name</label>
+        </div>
+    </div>
+
+    <!-- MIDDLE NAME (OPTIONAL) -->
+    <div class="col-md-4">
+        <div class="form-floating">
+            <input type="text" name="middlename"
+                   class="form-control"
+                   id="middlename"
+                   placeholder="Middle Name"
+                   pattern="[A-Za-z\s]{0,50}">
+            <label>Middle Name</label>
+        </div>
+    </div>
+
+</div>
 
                 <!-- Address -->
                 <div class="form-floating mb-3 mt-4">

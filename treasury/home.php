@@ -10,7 +10,7 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
 
 // view switch
 $view = $_GET['view'] ?? 'home';
-$view = in_array($view, ['home','tax_history','transactions'], true) ? $view : 'home';
+$view = in_array($view, ['home','tax_history','transactions','installments'], true) ? $view : 'home';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -33,8 +33,7 @@ $view = in_array($view, ['home','tax_history','transactions'], true) ? $view : '
   </div>
 
   <div class="nav-items">
-
-    <!-- ✅ NAV LINKS (History moved here) -->
+    <!-- ✅ NAV LINKS -->
     <div class="d-flex align-items-center gap-2 me-3">
       <a href="home.php?view=home"
          class="btn btn-sm <?= $view==='home' ? 'btn-light' : 'btn-outline-light' ?>">
@@ -44,6 +43,11 @@ $view = in_array($view, ['home','tax_history','transactions'], true) ? $view : '
       <a href="home.php?view=tax_history"
          class="btn btn-sm <?= $view==='tax_history' ? 'btn-light' : 'btn-outline-light' ?>">
         <i class="fas fa-receipt me-1"></i> Tax Payment History
+      </a>
+
+      <a href="home.php?view=installments"
+         class="btn btn-sm <?= $view==='installments' ? 'btn-light' : 'btn-outline-light' ?>">
+        <i class="fas fa-calendar-check me-1"></i> Installments
       </a>
 
       <a href="home.php?view=transactions"
@@ -66,7 +70,7 @@ $view = in_array($view, ['home','tax_history','transactions'], true) ? $view : '
 
 <div class="main-container">
 
-  <!-- ✅ Alerts (moved inside container TOP) -->
+  <!-- ✅ Alerts -->
   <?php if (!empty($_GET['success'])): ?>
     <div class="alert alert-success alert-dismissible fade show" role="alert">
       <i class="fas fa-check-circle me-2"></i><?php echo h($_GET['success']); ?>
@@ -85,7 +89,7 @@ $view = in_array($view, ['home','tax_history','transactions'], true) ? $view : '
   <?php if ($view === 'home'): ?>
 
     <!-- =========================
-         HOME ONLY: Search + Requests
+         HOME: Search + Requests
     ========================== -->
 
     <!-- Person Search Section -->
@@ -122,7 +126,7 @@ $view = in_array($view, ['home','tax_history','transactions'], true) ? $view : '
       </div>
     </div>
 
-    <!-- Person Records Table -->
+    <!-- ✅ Person Records Table (NOW includes AV) -->
     <div class="records-section" id="recordsSection" style="display:none;">
       <div class="section-header">
         <h4><i class="fas fa-database"></i> Property Records</h4>
@@ -135,6 +139,7 @@ $view = in_array($view, ['home','tax_history','transactions'], true) ? $view : '
               <th>Owner</th>
               <th>Address</th>
               <th>ARP No.</th>
+              <th class="text-end">Assessed Value</th>
             </tr>
           </thead>
           <tbody id="recordsTableBody"></tbody>
@@ -303,10 +308,7 @@ $view = in_array($view, ['home','tax_history','transactions'], true) ? $view : '
 
 
   <?php if ($view === 'tax_history'): ?>
-
-    <!-- =========================
-         TAX PAYMENT HISTORY VIEW
-    ========================== -->
+    <!-- TAX PAYMENT HISTORY VIEW -->
     <div class="dashboard-card">
       <div class="card-header history-header">
         <div class="header-left">
@@ -372,15 +374,86 @@ $view = in_array($view, ['home','tax_history','transactions'], true) ? $view : '
         </table>
       </div>
     </div>
+  <?php endif; ?>
+
+
+  <?php if ($view === 'installments'): ?>
+
+    <!-- INSTALLMENTS VIEW -->
+    <div class="dashboard-card">
+      <div class="card-header history-header">
+        <div class="header-left">
+          <i class="fas fa-calendar-check"></i>
+          <h5>Installment Payments</h5>
+        </div>
+      </div>
+
+      <div class="card-body">
+        <table class="modern-table" id="installmentsTable">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Declared Owner</th>
+              <th>ARP No.</th>
+              <th class="text-end">Assessed Value</th>
+              <th class="text-end">Base Tax (2%)</th>
+              <th>Control No.</th>
+              <th>Date Started</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+          <?php
+          try {
+            $instSql = "SELECT id, declared_owner, arp_no, assessed_value, control_number,
+                               COALESCE(paid_at, created_at) AS started_at
+                        FROM tax_requests
+                        WHERE status='INSTALLMENT'
+                        ORDER BY COALESCE(paid_at, created_at) DESC";
+            $instRes = $conn->query($instSql);
+
+            while($t = $instRes->fetch_assoc()):
+              $avRaw = (string)($t['assessed_value'] ?? '0');
+              $av    = (float)str_replace([',',' '], '', $avRaw);
+              $base  = $av * 0.02;
+              $startedAt = $t['started_at'] ?? null;
+          ?>
+            <tr>
+              <td><span class="id-badge">#<?php echo (int)$t['id']; ?></span></td>
+              <td><?php echo h($t['declared_owner']); ?></td>
+              <td><?php echo h($t['arp_no']); ?></td>
+              <td class="text-end">₱<?php echo number_format($av, 2); ?></td>
+              <td class="text-end fw-semibold">₱<?php echo number_format($base, 2); ?></td>
+              <td><?php echo h($t['control_number'] ?? ''); ?></td>
+              <td><span class="date"><?php echo $startedAt ? date('M d, Y', strtotime($startedAt)) : ''; ?></span></td>
+              <td class="actions">
+                <button
+                  type="button"
+                  class="action-btn accept btnViewInstallment"
+                  title="View Installment Schedule"
+                  data-id="<?php echo (int)$t['id']; ?>"
+                  data-owner="<?php echo h($t['declared_owner']); ?>"
+                  data-arp="<?php echo h($t['arp_no']); ?>"
+                  data-control="<?php echo h($t['control_number'] ?? ''); ?>"
+                >
+                  <i class="fas fa-list-check"></i>
+                </button>
+              </td>
+            </tr>
+          <?php
+            endwhile;
+          } catch (Throwable $e) { /* keep empty */ }
+          ?>
+          </tbody>
+        </table>
+      </div>
+    </div>
 
   <?php endif; ?>
 
 
   <?php if ($view === 'transactions'): ?>
-
-    <!-- =========================
-         TRANSACTION HISTORY VIEW
-    ========================== -->
+    <!-- TRANSACTION HISTORY VIEW -->
     <div class="dashboard-card">
       <div class="card-header history-header">
         <div class="header-left">
@@ -477,13 +550,12 @@ $view = in_array($view, ['home','tax_history','transactions'], true) ? $view : '
         </table>
       </div>
     </div>
-
   <?php endif; ?>
 
 </div><!-- /.main-container -->
 
 
-<!-- ✅ TAX PAYMENT MODAL (needed only on home, but ok to keep) -->
+<!-- ✅ TAX PAYMENT MODAL (same as your existing) -->
 <div class="modal fade" id="taxPaymentModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered modal-lg">
     <div class="modal-content border-0 shadow">
@@ -612,6 +684,129 @@ $view = in_array($view, ['home','tax_history','transactions'], true) ? $view : '
   </div>
 </div>
 
+<!-- ✅ INSTALLMENT SCHEDULE MODAL -->
+<div class="modal fade" id="installmentModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-xl">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header">
+        <h5 class="modal-title fw-bold">
+          <i class="fas fa-calendar-alt me-2"></i>Installment Schedule
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+        <input type="hidden" id="inst_tax_request_id" value="0">
+
+        <div class="row g-2 mb-3">
+          <div class="col-md-6">
+            <div class="small text-muted">Declared Owner</div>
+            <div class="fw-bold" id="inst_owner"></div>
+          </div>
+          <div class="col-md-3">
+            <div class="small text-muted">ARP No.</div>
+            <div class="fw-semibold" id="inst_arp"></div>
+          </div>
+          <div class="col-md-3">
+            <div class="small text-muted">Control No.</div>
+            <div class="fw-semibold" id="inst_control"></div>
+          </div>
+        </div>
+
+        <!-- ✅ FIXED TABLE (NO JS INSIDE THEAD) -->
+        <div class="table-responsive">
+          <table class="table table-bordered align-middle">
+            <thead class="table-light">
+              <tr>
+                <th style="width:140px;">Quarter</th>
+                <th>Coverage</th>
+                <th style="width:170px;">Due Date</th>
+                <th style="width:140px;">Status</th>
+                <th style="width:160px;" class="text-end">Quarter Amount</th>
+                <th style="width:140px;">Action</th>
+              </tr>
+            </thead>
+            <tbody id="instScheduleBody">
+              <tr><td colspan="6" class="text-center text-muted">No data</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="small text-muted">
+          * Quarterly amount is computed from total due ÷ 4.
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ✅ QUARTER PAYMENT MODAL (manual discount/penalty) -->
+<div class="modal fade" id="quarterPaymentModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+
+      <div class="modal-header">
+        <h5 class="modal-title fw-bold">
+          <i class="fas fa-coins me-2"></i>Quarter Payment
+        </h5>
+        <button class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+        <input type="hidden" id="pay_tax_id" value="0">
+        <input type="hidden" id="pay_quarter" value="0">
+
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Quarter Amount</label>
+          <input type="text" id="quarter_amount" class="form-control" readonly>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Discount</label>
+          <select id="discount_rate" class="form-select">
+            <option value="0">None</option>
+            <option value="0.10">10%</option>
+            <option value="0.20">20%</option>
+          </select>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Penalty (Months)</label>
+          <input type="number" id="penalty_months" class="form-control" min="0" max="36" value="0">
+          <div class="small text-muted mt-1">2% per month.</div>
+        </div>
+
+        <hr>
+
+        <div class="d-flex justify-content-between mb-1">
+          <span>Discount Amount</span>
+          <strong id="qp_discount_amt">₱0.00</strong>
+        </div>
+        <div class="d-flex justify-content-between mb-1">
+          <span>Penalty Amount</span>
+          <strong id="qp_penalty_amt">₱0.00</strong>
+        </div>
+        <div class="d-flex justify-content-between fs-5 mt-2">
+          <span class="fw-bold">TOTAL PAYABLE</span>
+          <span class="fw-bold" id="total_payable">₱0.00</span>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-primary" id="btnSaveQuarter">
+          <i class="fas fa-save me-1"></i>Save Payment
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
 
 <!-- Scripts -->
 <script src="../assets/js/jquery-3.7.1.min.js"></script>
@@ -621,7 +816,10 @@ $view = in_array($view, ['home','tax_history','transactions'], true) ? $view : '
 <script>
 $(document).ready(function() {
 
-  // Pending count (home only)
+  /* ==========================
+     DATATABLES
+  ========================== */
+
   if ($('#pendingTable').length) {
     $('#pendingCount').text($('#pendingTable tbody tr').length);
     $('#pendingTable').DataTable({
@@ -653,6 +851,16 @@ $(document).ready(function() {
     });
   }
 
+  if ($('#installmentsTable').length) {
+    $('#installmentsTable').DataTable({
+      pageLength: 10,
+      lengthMenu: [[10, 25, 50, -1], [10, 25, 50, "All"]],
+      language: { search: "<i class='fas fa-search'></i>", searchPlaceholder: "Search installments...", emptyTable: "No installment records yet." },
+      dom: '<"table-toolbar"f>rtip',
+      initComplete: function() { $('#installmentsTable_filter input').attr('placeholder', 'Search installments...'); }
+    });
+  }
+
   if ($('#historyTable').length) {
     const historyTable = $('#historyTable').DataTable({
       pageLength: 10,
@@ -669,7 +877,9 @@ $(document).ready(function() {
     });
   }
 
-  /* Person search (home only) */
+  /* ==========================
+     PERSON SEARCH
+  ========================== */
   $('#searchPersonBtn').on('click', function() {
     const barangay = $('#barangaySelect').val();
     const ownerName = $('#personSearch').val().trim();
@@ -685,8 +895,7 @@ $(document).ready(function() {
       data: { barangay: barangay, owner_name: ownerName },
       dataType: 'json',
       success: function(response) { displayPersonRecords(response); },
-      error: function(xhr, status, error) {
-        console.error('AJAX Error:', error);
+      error: function() {
         alert('Error searching records. Please try again.');
       },
       complete: function() {
@@ -703,26 +912,32 @@ $(document).ready(function() {
     if (records && records.length > 0 && !records.error) {
       $('#recordCount').text(records.length + ' record(s) found');
       $.each(records, function(index, record) {
+        const av = Number(record.assessed_value || 0);
         tbody.append(
           '<tr>' +
             '<td>' + (record.owner || '') + '</td>' +
             '<td>' + (record.address || '') + '</td>' +
             '<td>' + (record.arp_no || '') + '</td>' +
+            '<td class="text-end">₱' + av.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}) + '</td>' +
           '</tr>'
         );
       });
     } else if (records && records.error) {
       $('#recordCount').text('Error');
-      tbody.append('<tr><td colspan="3" class="no-records">' + records.error + '</td></tr>');
+      tbody.append('<tr><td colspan="4" class="no-records">' + records.error + '</td></tr>');
     } else {
       $('#recordCount').text('No records found');
-      tbody.append('<tr><td colspan="3" class="no-records">No property records found for this owner</td></tr>');
+      tbody.append('<tr><td colspan="4" class="no-records">No property records found for this owner</td></tr>');
     }
   }
 
-  $('#personSearch').on('keyup', function(e){ if(e.key === 'Enter') $('#searchPersonBtn').click(); });
+  $('#personSearch').on('keyup', function(e){
+    if(e.key === 'Enter') $('#searchPersonBtn').click();
+  });
 
-  /* Tax modal logic (works only if buttons exist) */
+  /* ==========================
+     TAX MODAL COMPUTE
+  ========================== */
   const peso = (n) => "₱" + Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   let currentAV = 0;
 
@@ -807,6 +1022,168 @@ $(document).ready(function() {
     $('#tx_total_due_input').val(totalDue.toFixed(2));
     $('#tx_term_amount_input').val(termAmount.toFixed(2));
   }
+
+  /* ==========================
+     INSTALLMENT MODAL (Schedule)
+  ========================== */
+  $(document).on('click', '.btnViewInstallment', function() {
+    const id = Number($(this).data('id')) || 0;
+    $('#inst_tax_request_id').val(id);
+
+    $('#inst_owner').text($(this).data('owner') || '');
+    $('#inst_arp').text($(this).data('arp') || '');
+    $('#inst_control').text($(this).data('control') || '');
+
+    $('#instScheduleBody').html('<tr><td colspan="6" class="text-center text-muted">Loading...</td></tr>');
+
+    $.ajax({
+      url: 'get_installment_schedule.php',
+      method: 'POST',
+      dataType: 'json',
+      data: { tax_request_id: id },
+      success: function(res) {
+        if (!res || res.error) {
+          $('#instScheduleBody').html('<tr><td colspan="6" class="text-center text-danger">' + (res.error || 'Error') + '</td></tr>');
+          return;
+        }
+
+        let html = '';
+        res.forEach(function(r){
+          const qLabel = (r.quarter === 1 ? '1st' : r.quarter === 2 ? '2nd' : r.quarter === 3 ? '3rd' : '4th');
+          const statusBadge = (r.status === 'PAID')
+            ? '<span class="badge bg-success"><i class="fas fa-check-circle me-1"></i>PAID</span>'
+            : '<span class="badge bg-warning text-dark"><i class="fas fa-clock me-1"></i>PENDING</span>';
+
+          const amount = Number(r.amount || 0);
+          const amountText = amount.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+
+          let actionBtn = '';
+          if (r.status === 'PAID') {
+            actionBtn = '<button class="btn btn-sm btn-outline-secondary" disabled>Paid</button>';
+          } else {
+            actionBtn = '<button class="btn btn-sm btn-primary btnPayQuarter" data-q="'+r.quarter+'" data-amount="'+amount+'"><i class="fas fa-coins me-1"></i>Pay</button>';
+          }
+
+          html += `
+            <tr>
+              <td><strong>${qLabel} Quarter</strong></td>
+              <td>${r.coverage}</td>
+              <td>${r.due_date_text}</td>
+              <td>${statusBadge}</td>
+              <td class="text-end">₱${amountText}</td>
+              <td>${actionBtn}</td>
+            </tr>
+          `;
+        });
+
+        $('#instScheduleBody').html(html);
+      },
+      error: function() {
+        $('#instScheduleBody').html('<tr><td colspan="6" class="text-center text-danger">Request failed.</td></tr>');
+      }
+    });
+
+    new bootstrap.Modal(document.getElementById('installmentModal')).show();
+  });
+
+  /* ==========================
+     QUARTER PAYMENT (Manual)
+  ========================== */
+  const fmt = (n) => "₱" + Number(n).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+
+  function computeQuarterTotal(){
+    let amount = Number($('#quarter_amount').data('raw')) || 0;
+    let discount = Number($('#discount_rate').val()) || 0;
+
+    let months = parseInt($('#penalty_months').val(), 10);
+    if (isNaN(months)) months = 0;
+    if (months < 0) months = 0;
+    if (months > 36) months = 36;
+    $('#penalty_months').val(months);
+
+    const discountAmt = amount * discount;
+    const afterDiscount = amount - discountAmt;
+    const penaltyAmt = afterDiscount * (0.02 * months);
+    const total = afterDiscount + penaltyAmt;
+
+    $('#qp_discount_amt').text(fmt(discountAmt));
+    $('#qp_penalty_amt').text(fmt(penaltyAmt));
+    $('#total_payable').text(fmt(total));
+  }
+
+  $(document).on('click', '.btnPayQuarter', function() {
+    const taxId = Number($('#inst_tax_request_id').val()) || 0;
+    const quarter = Number($(this).data('q')) || 0;
+    const amount = Number($(this).data('amount')) || 0;
+
+    if (!taxId || !quarter) return;
+
+    $('#pay_tax_id').val(taxId);
+    $('#pay_quarter').val(quarter);
+
+    $('#quarter_amount')
+      .val(fmt(amount))
+      .data('raw', amount);
+
+    $('#discount_rate').val('0');
+    $('#penalty_months').val('0');
+
+    computeQuarterTotal();
+
+    new bootstrap.Modal(document.getElementById('quarterPaymentModal')).show();
+  });
+
+  $('#discount_rate, #penalty_months').on('change keyup', computeQuarterTotal);
+
+  // Save quarter payment
+  $('#btnSaveQuarter').on('click', function() {
+    const taxId = Number($('#pay_tax_id').val()) || 0;
+    const quarter = Number($('#pay_quarter').val()) || 0;
+    const discountRate = Number($('#discount_rate').val()) || 0;
+
+    let months = parseInt($('#penalty_months').val(), 10);
+    if (isNaN(months)) months = 0;
+    if (months < 0) months = 0;
+    if (months > 36) months = 36;
+    $('#penalty_months').val(months);
+
+    if (!taxId || !quarter) return;
+
+    const btn = $(this);
+    btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Saving...');
+
+    $.ajax({
+      url: 'pay_installment.php',
+      method: 'POST',
+      dataType: 'json',
+      data: {
+        tax_request_id: taxId,
+        quarter: quarter,
+        discount_rate: discountRate,
+        penalty_months: months
+      },
+      success: function(res) {
+        if (!res || res.error) {
+          alert(res.error || 'Error saving payment');
+          btn.prop('disabled', false).html('<i class="fas fa-save me-1"></i>Save Payment');
+          return;
+        }
+
+        // close payment modal
+        const pm = bootstrap.Modal.getInstance(document.getElementById('quarterPaymentModal'));
+        if (pm) pm.hide();
+
+        // refresh schedule
+        $('.btnViewInstallment[data-id="'+taxId+'"]').trigger('click');
+
+        btn.prop('disabled', false).html('<i class="fas fa-save me-1"></i>Save Payment');
+      },
+      error: function() {
+        alert('Request failed.');
+        btn.prop('disabled', false).html('<i class="fas fa-save me-1"></i>Save Payment');
+      }
+    });
+  });
 
 });
 </script>

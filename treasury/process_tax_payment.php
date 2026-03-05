@@ -22,7 +22,7 @@ $penalty_months = (int)($_POST["penalty_months"] ?? 0);
 
 $payment_option = strtoupper(trim((string)($_POST["payment_option"] ?? "ANNUALLY"))); // ANNUALLY / QUARTERLY
 
-// values from JS (optional, but we’ll still validate basic)
+// values from JS (optional)
 $computed_total_due  = (float)($_POST["computed_total_due"] ?? 0);
 $computed_term_amt   = (float)($_POST["computed_term_amount"] ?? 0);
 
@@ -36,11 +36,8 @@ if (!in_array($payment_option, ["ANNUALLY","QUARTERLY"], true)) {
 if ($penalty_months < 0) $penalty_months = 0;
 if ($penalty_months > 36) $penalty_months = 36;
 
-// OPTIONAL: Server-side recompute (recommended for security)
-// We will recompute total_due based on assessed_value in DB,
-// so kahit ma-tamper yung JS value, safe pa rin.
-
 try {
+  // ✅ get assessed value
   $stmt = $conn->prepare("SELECT assessed_value FROM tax_requests WHERE id=? LIMIT 1");
   $stmt->bind_param("i", $tax_id);
   $stmt->execute();
@@ -57,7 +54,7 @@ try {
   $sef   = $av * 0.01;
   $base  = $basic + $sef;
 
-  // clamp discount to allowed
+  // clamp discount
   if (!in_array($discount_rate, [0, 0.10, 0.20], true)) $discount_rate = 0;
 
   $discountAmt = $base * $discount_rate;
@@ -68,12 +65,10 @@ try {
 
   $termAmount  = ($payment_option === "QUARTERLY") ? ($totalDue / 4) : $totalDue;
 
-  // status logic
-  // - ANNUALLY  => PAID (paid_at now)
-  // - QUARTERLY => INSTALLMENT (paid_at NULL or keep created_at)
   $newStatus = ($payment_option === "QUARTERLY") ? "INSTALLMENT" : "PAID";
 
   if ($newStatus === "PAID") {
+    // ✅ Full payment
     $stmt = $conn->prepare("
       UPDATE tax_requests
       SET status=?,
@@ -83,6 +78,7 @@ try {
           term_amount=?,
           paid_at=NOW()
       WHERE id=?
+      LIMIT 1
     ");
     $stmt->bind_param(
       "sssddi",
@@ -97,8 +93,10 @@ try {
     $stmt->close();
 
     back("Tax payment saved as PAID.", true);
+
   } else {
-    // INSTALLMENT
+    // ✅ INSTALLMENT
+    // IMPORTANT: set paid_at=NOW() as "started_at" for schedule basis
     $stmt = $conn->prepare("
       UPDATE tax_requests
       SET status=?,
@@ -106,8 +104,9 @@ try {
           payment_option=?,
           total_due=?,
           term_amount=?,
-          paid_at=NULL
+          paid_at=NOW()
       WHERE id=?
+      LIMIT 1
     ");
     $stmt->bind_param(
       "sssddi",
@@ -121,10 +120,32 @@ try {
     $stmt->execute();
     $stmt->close();
 
+// ✅ Auto-create installment schedule rows (Q1..Q4) FIXED Jan-Dec
+$year = (int)date('Y'); // use current year (or year of NOW())
+
+$quarters = [
+  1 => ['coverage' => 'Jan - Mar', 'due' => sprintf('%d-03-31', $year)],
+  2 => ['coverage' => 'Apr - Jun', 'due' => sprintf('%d-06-30', $year)],
+  3 => ['coverage' => 'Jul - Sep', 'due' => sprintf('%d-09-30', $year)],
+  4 => ['coverage' => 'Oct - Dec', 'due' => sprintf('%d-12-31', $year)],
+];
+
+$ins = $conn->prepare("
+  INSERT IGNORE INTO tax_installments (tax_request_id, year, quarter, coverage, due_date, status)
+  VALUES (?,?,?,?,?,'PENDING')
+");
+
+foreach ($quarters as $q => $meta) {
+  $cov = $meta['coverage'];
+  $due = $meta['due'];
+  $ins->bind_param("iiiss", $tax_id, $year, $q, $cov, $due);
+  $ins->execute();
+}
+$ins->close();
+
     back("Tax payment saved as INSTALLMENT (Quarterly).", true);
   }
 
 } catch (Throwable $e) {
-  // If enum doesn't allow INSTALLMENT or columns missing, you'll land here.
   back("Save failed: " . $e->getMessage());
 }

@@ -248,102 +248,266 @@ if($tab == 'dashboard') {
                     </div>
                 </div>
 
-            <?php elseif($tab=='requests'): ?>
+<?php elseif($tab=='requests'): ?>
 
-                <div class="modern-card">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <span><i class="fas fa-clipboard-list me-2"></i> Requests (Pending & Paid)</span>
+<?php
+// ===============================
+// MARK AS DONE handler
+// ===============================
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['mark_done_id'])) {
+    $mark_id = (int)$_POST['mark_done_id'];
 
-                        <a href="process_certificate.php" class="modern-btn modern-btn-warning modern-btn-sm">
-                            <i class="fas fa-cogs me-1"></i> Process
-                        </a>
-                    </div>
+    $stmtDone = $conn->prepare("
+        UPDATE requests
+        SET is_done = 1,
+            done_at = NOW()
+        WHERE id = ?
+        LIMIT 1
+    ");
+    $stmtDone->bind_param("i", $mark_id);
+    $stmtDone->execute();
+    $stmtDone->close();
 
-                    <div class="card-body">
-                        <div class="table-responsive">
-                            <table class="modern-table">
-                                <thead>
-                                    <tr>
-                                        <th>ID</th>
-<th>Client</th>
-<th>Address</th>
-<th>Purpose</th>
-<th>Certificates/Services</th>
-<th>Total</th>
-<th>Control No</th>
-<th>Status</th>
-<th>Date</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                <?php
-                                $sql = "
-    SELECT
-        r.id,
-        CONCAT(c.firstname,' ',c.middlename,' ',c.lastname) AS fullname,
-        c.address,
-        c.purpose,
-        r.total_amount,
-        r.control_number,
-        r.status,
-        r.created_at,
+    // PRG to avoid resubmit
+    header("Location: home.php?tab=requests");
+    exit();
+}
 
-        (
-            SELECT GROUP_CONCAT(cert.certificate_name SEPARATOR ', ')
-            FROM request_items ri
-            JOIN certificates cert ON cert.id = ri.certificate_id
-            WHERE ri.request_id = r.id
-        ) AS certificate_list,
+// ===============================
+// FAAS QUICK SEARCH (Barangay + Owner Name)
+// ===============================
+$req_barangay = $_GET['barangay'] ?? '';
+$req_search   = trim($_GET['search_owner'] ?? '');
+$faas_hits    = [];
 
-        (
-            SELECT GROUP_CONCAT(s.service_name SEPARATOR ', ')
-            FROM requested_services rs
-            JOIN services s ON s.id = rs.service_id
-            WHERE rs.request_id = r.id
-        ) AS service_list,
+if ($req_barangay !== '' && $req_search !== '' && in_array($req_barangay, $allowed_tables, true)) {
+    $stmtF = $conn->prepare("
+        SELECT
+            declared_owner,
+            owner_address,
+            `ARP_No.` AS arp_no
+        FROM `$req_barangay`
+        WHERE declared_owner LIKE CONCAT('%', ?, '%')
+        ORDER BY declared_owner ASC
+        LIMIT 200
+    ");
+    $stmtF->bind_param("s", $req_search);
+    $stmtF->execute();
+    $resF = $stmtF->get_result();
+    while($r = $resF->fetch_assoc()) $faas_hits[] = $r;
+    $stmtF->close();
+}
+?>
 
-        (SELECT COUNT(*) FROM request_items ri WHERE ri.request_id = r.id) AS cert_count,
-        (SELECT COUNT(*) FROM requested_services rs WHERE rs.request_id = r.id) AS service_count
+<div class="modern-card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="fas fa-search me-2"></i> Search FAAS (Barangay Filter)</span>
+        <small class="text-muted">Shows: Declared Owner • Address • ARP</small>
+    </div>
 
-    FROM requests r
-    JOIN clients c ON r.client_id = c.id
-    WHERE r.status IN ('PENDING','PAID')
-    ORDER BY r.created_at DESC
-";
-                                $result = $conn->query($sql);
+    <div class="card-body">
+        <form method="GET" class="row g-3">
+            <input type="hidden" name="tab" value="requests">
 
-                                while($row = $result->fetch_assoc()):
-                                    $certCount    = (int)$row['cert_count'];
-                                    $serviceCount = (int)$row['service_count'];
+            <div class="col-md-4">
+                <label class="modern-form-label">Barangay</label>
+                <select name="barangay" class="modern-form-select" required>
+                    <option value="">-- Select Barangay --</option>
+                    <?php foreach($allowed_tables as $t): ?>
+                        <option value="<?= htmlspecialchars($t) ?>" <?= ($req_barangay===$t?'selected':'') ?>>
+                            <?= ucwords(str_replace('_',' ', $t)) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
 
-                                    $items = "-";
-                                    if ($certCount > 0 && !empty($row['certificate_list'])) {
-                                        $items = $row['certificate_list'];
-                                    } elseif ($serviceCount > 0 && !empty($row['service_list'])) {
-                                        $items = $row['service_list'];
-                                    }
-                                ?>
+            <div class="col-md-6">
+                <label class="modern-form-label">Search Name (Declared Owner)</label>
+                <input type="text"
+                       name="search_owner"
+                       class="modern-form-control"
+                       value="<?= htmlspecialchars($req_search) ?>"
+                       placeholder="e.g. Juan Dela Cruz"
+                       required>
+            </div>
+
+            <div class="col-md-2 d-flex align-items-end">
+                <button class="modern-btn modern-btn-primary w-100" type="submit">
+                    <i class="fas fa-search me-2"></i> Search
+                </button>
+            </div>
+
+            <?php if($req_barangay !== '' || $req_search !== ''): ?>
+            <div class="col-12">
+                <a class="modern-btn modern-btn-secondary"
+                   href="home.php?tab=requests">
+                    <i class="fas fa-times me-2"></i> Clear
+                </a>
+            </div>
+            <?php endif; ?>
+        </form>
+    </div>
+
+    <?php if($req_barangay !== '' && $req_search !== ''): ?>
+        <div class="card-body pt-0">
+            <?php if(!empty($faas_hits)): ?>
+                <div class="table-responsive">
+                    <table class="modern-table">
+                        <thead>
+                            <tr>
+                                <th>Declared Owner</th>
+                                <th>Address</th>
+                                <th>ARP</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach($faas_hits as $h): ?>
                                 <tr>
-                                    <td>#<?= (int)$row['id'] ?></td>
-<td><?= htmlspecialchars($row['fullname'] ?? '-') ?></td>
-<td><?= htmlspecialchars($row['address'] ?? '-') ?></td>
-<td><?= htmlspecialchars($row['purpose'] ?? '-') ?></td>
-<td><?= htmlspecialchars($items) ?></td>
-<td><strong>₱<?= number_format((float)$row['total_amount'], 2) ?></strong></td>
-<td><?= htmlspecialchars($row['control_number'] ?? '-') ?></td>
-<td>
-    <span class="status-badge <?= strtolower((string)$row['status']) ?>">
-        <?= htmlspecialchars((string)$row['status']) ?>
-    </span>
-</td>
-<td><?= !empty($row['created_at']) ? date('M d, Y', strtotime($row['created_at'])) : '-' ?></td>
+                                    <td><?= htmlspecialchars($h['declared_owner'] ?? '-') ?></td>
+                                    <td><?= htmlspecialchars($h['owner_address'] ?? '-') ?></td>
+                                    <td><?= htmlspecialchars($h['arp_no'] ?? '-') ?></td>
                                 </tr>
-                                <?php endwhile; ?>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
                 </div>
+                <small class="text-muted d-block mt-2">
+                    Found <b><?= count($faas_hits) ?></b> record(s) in
+                    <b><?= htmlspecialchars(ucwords(str_replace('_',' ', $req_barangay))) ?></b>.
+                    (Limit 200 rows.)
+                </small>
+            <?php else: ?>
+                <div class="modern-alert modern-alert-warning mb-0">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    No FAAS record found for "<b><?= htmlspecialchars($req_search) ?></b>" in
+                    "<b><?= htmlspecialchars(ucwords(str_replace('_',' ', $req_barangay))) ?></b>".
+                </div>
+            <?php endif; ?>
+        </div>
+    <?php endif; ?>
+</div>
+
+
+<!-- ===============================
+     EXISTING REQUESTS TABLE (Pending & Paid)
+================================== -->
+<div class="modern-card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="fas fa-clipboard-list me-2"></i> Requests (Pending & Paid)</span>
+
+        <a href="process_certificate.php" class="modern-btn modern-btn-warning modern-btn-sm">
+            <i class="fas fa-cogs me-1"></i> Process
+        </a>
+    </div>
+
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="modern-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Client</th>
+                        <th>Address</th>
+                        <th>Purpose</th>
+                        <th>Certificates/Services</th>
+                        <th>Total</th>
+                        <th>Control No</th>
+                        <th>Status</th>
+                        <th>Date</th>
+                        <th>Done</th>
+                    </tr>
+                </thead>
+                <tbody>
+                <?php
+                $sql = "
+                    SELECT
+                        r.id,
+                        CONCAT(c.firstname,' ',c.middlename,' ',c.lastname) AS fullname,
+                        c.address,
+                        c.purpose,
+                        r.total_amount,
+                        r.control_number,
+                        r.status,
+                        r.is_done,
+                        r.done_at,
+                        r.created_at,
+
+                        (
+                            SELECT GROUP_CONCAT(cert.certificate_name SEPARATOR ', ')
+                            FROM request_items ri
+                            JOIN certificates cert ON cert.id = ri.certificate_id
+                            WHERE ri.request_id = r.id
+                        ) AS certificate_list,
+
+                        (
+                            SELECT GROUP_CONCAT(s.service_name SEPARATOR ', ')
+                            FROM requested_services rs
+                            JOIN services s ON s.id = rs.service_id
+                            WHERE rs.request_id = r.id
+                        ) AS service_list,
+
+                        (SELECT COUNT(*) FROM request_items ri WHERE ri.request_id = r.id) AS cert_count,
+                        (SELECT COUNT(*) FROM requested_services rs WHERE rs.request_id = r.id) AS service_count
+
+                    FROM requests r
+                    JOIN clients c ON r.client_id = c.id
+                    WHERE r.status IN ('PENDING','PAID')
+                    ORDER BY r.created_at DESC
+                ";
+                $result = $conn->query($sql);
+
+                while($row = $result->fetch_assoc()):
+                    $certCount    = (int)$row['cert_count'];
+                    $serviceCount = (int)$row['service_count'];
+
+                    $items = "-";
+                    if ($certCount > 0 && !empty($row['certificate_list'])) {
+                        $items = $row['certificate_list'];
+                    } elseif ($serviceCount > 0 && !empty($row['service_list'])) {
+                        $items = $row['service_list'];
+                    }
+
+                    $isDone = (int)($row['is_done'] ?? 0) === 1;
+                    $doneAt = $row['done_at'] ?? null;
+                ?>
+                <tr>
+                    <td>#<?= (int)$row['id'] ?></td>
+                    <td><?= htmlspecialchars($row['fullname'] ?? '-') ?></td>
+                    <td><?= htmlspecialchars($row['address'] ?? '-') ?></td>
+                    <td><?= htmlspecialchars($row['purpose'] ?? '-') ?></td>
+                    <td><?= htmlspecialchars($items) ?></td>
+                    <td><strong>₱<?= number_format((float)$row['total_amount'], 2) ?></strong></td>
+                    <td><?= htmlspecialchars($row['control_number'] ?? '-') ?></td>
+                    <td>
+                        <span class="status-badge <?= strtolower((string)$row['status']) ?>">
+                            <?= htmlspecialchars((string)$row['status']) ?>
+                        </span>
+                    </td>
+                    <td><?= !empty($row['created_at']) ? date('M d, Y', strtotime($row['created_at'])) : '-' ?></td>
+
+                    <!-- DONE COLUMN -->
+                    <td>
+                        <?php if($isDone): ?>
+                            <span class="status-badge paid"
+                                  title="<?= !empty($doneAt) ? date('M d, Y h:i A', strtotime($doneAt)) : '' ?>">
+                                <i class="fas fa-check me-1"></i> Done
+                            </span>
+                        <?php else: ?>
+                            <form method="POST" class="d-inline">
+                                <input type="hidden" name="mark_done_id" value="<?= (int)$row['id'] ?>">
+                                <button type="submit" class="modern-btn modern-btn-success modern-btn-sm">
+                                    <i class="fas fa-check me-1"></i> Mark as done
+                                </button>
+                            </form>
+                        <?php endif; ?>
+                    </td>
+                </tr>
+                <?php endwhile; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
 
             <?php elseif($tab=='history'): ?>
 

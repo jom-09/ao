@@ -158,7 +158,7 @@ $error = isset($_GET['error']) ? htmlspecialchars($_GET['error']) : '';
   </div> -->
 
   <div class="mb-3">
-    <label class="form-label">Control Number</label>
+    <label class="form-label">OR No.</label>
     <input
       type="text"
       name="control_number"

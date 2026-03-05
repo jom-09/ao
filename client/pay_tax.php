@@ -192,9 +192,6 @@ try {
               <span class="fw-semibold">TOTAL Tax Due</span>
               <strong class="fs-5" id="checkedTotal">₱0.00</strong>
             </div>
-            <small class="text-muted d-block mt-1">
-              Tip: piliin mo lang yung property/properties na babayaran mo.
-            </small>
           </div>
 
           <div class="d-grid d-md-block">

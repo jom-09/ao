@@ -555,7 +555,7 @@ $view = in_array($view, ['home','tax_history','transactions','installments'], tr
 </div><!-- /.main-container -->
 
 
-<!-- ✅ TAX PAYMENT MODAL (same as your existing) -->
+<!-- ✅ TAX PAYMENT MODAL -->
 <div class="modal fade" id="taxPaymentModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered modal-lg">
     <div class="modal-content border-0 shadow">
@@ -713,7 +713,6 @@ $view = in_array($view, ['home','tax_history','transactions','installments'], tr
           </div>
         </div>
 
-        <!-- ✅ FIXED TABLE (NO JS INSIDE THEAD) -->
         <div class="table-responsive">
           <table class="table table-bordered align-middle">
             <thead class="table-light">
@@ -744,7 +743,7 @@ $view = in_array($view, ['home','tax_history','transactions','installments'], tr
   </div>
 </div>
 
-<!-- ✅ QUARTER PAYMENT MODAL (manual discount/penalty) -->
+<!-- ✅ QUARTER PAYMENT MODAL -->
 <div class="modal fade" id="quarterPaymentModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content border-0 shadow">
@@ -937,8 +936,15 @@ $(document).ready(function() {
 
   /* ==========================
      TAX MODAL COMPUTE
+     ✅ FIX: single declaration only
   ========================== */
-  const peso = (n) => "₱" + Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  function peso(n){
+    return "₱" + Number(n).toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+  }
+
   let currentAV = 0;
 
   $(document).on('click', '.btnProcessTax', function() {
@@ -1184,6 +1190,133 @@ $(document).ready(function() {
       }
     });
   });
+
+  /* ==========================
+     AUTO REFRESH (HOME ONLY)
+     ✅ FIX: removed duplicate peso() here (we already have it above)
+  ========================== */
+  const isHomeView = new URLSearchParams(window.location.search).get('view') === null
+                 || new URLSearchParams(window.location.search).get('view') === 'home';
+
+  let pendingDT = null;
+  let taxDT = null;
+
+  if ($('#pendingTable').length) {
+    pendingDT = $.fn.DataTable.isDataTable('#pendingTable')
+      ? $('#pendingTable').DataTable()
+      : null;
+  }
+
+  if ($('#taxPendingTable').length) {
+    taxDT = $.fn.DataTable.isDataTable('#taxPendingTable')
+      ? $('#taxPendingTable').DataTable()
+      : null;
+  }
+
+  let lastPendingTopId = 0;
+  let lastTaxTopId = 0;
+
+  function buildPendingRow(r){
+    const id = Number(r.id || 0);
+    const urlAccept = `process_request.php?id=${id}`;
+    const urlDecline = `process_request.php?decline=${id}`;
+
+    return [
+      `<span class="id-badge">#${id}</span>`,
+      `<span class="client-name">${$('<div>').text(r.fullname || '').html()}</span>`,
+      `${$('<div>').text(r.address || '').html()}`,
+      `${$('<div>').text(r.purpose || '').html()}`,
+      `<span class="certs-list">${$('<div>').text(r.items || '-').html()}</span>`,
+      `<span class="amount">${peso(r.total_amount || 0)}</span>`,
+      `<span class="date">${$('<div>').text(r.date_text || '').html()}</span>`,
+      `
+        <a href="${urlAccept}" class="action-btn accept" title="Accept / Mark Paid">
+          <i class="fas fa-check"></i>
+        </a>
+        <a href="${urlDecline}" class="action-btn decline" title="Decline">
+          <i class="fas fa-times"></i>
+        </a>
+      `
+    ];
+  }
+
+  function buildTaxRow(t){
+    const id = Number(t.id || 0);
+
+    const owner = $('<div>').text(t.declared_owner || '').html();
+    const arp   = $('<div>').text(t.arp_no || '').html();
+    const status = $('<div>').text(t.status || 'PENDING').html();
+
+    const avRaw = Number(t.assessed_value || 0).toFixed(2);
+
+    return [
+      `<span class="id-badge">#${id}</span>`,
+      owner,
+      arp,
+      `<span class="text-end d-block">₱${Number(t.assessed_value || 0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</span>`,
+      `<span class="text-end d-block fw-semibold">₱${Number(t.base_tax || 0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</span>`,
+      `<span class="status-badge pending"><i class="fas fa-clock"></i> ${status}</span>`,
+      `<span class="date">${$('<div>').text(t.date_text || '').html()}</span>`,
+      `
+      <button
+        type="button"
+        class="action-btn accept btnProcessTax"
+        title="Process Payment"
+        data-id="${id}"
+        data-owner="${(t.declared_owner || '').replace(/"/g,'&quot;')}"
+        data-arp="${(t.arp_no || '').replace(/"/g,'&quot;')}"
+        data-av="${avRaw}"
+      >
+        <i class="fas fa-cash-register"></i>
+      </button>
+      `
+    ];
+  }
+
+  function refreshHomeTables(){
+    if (!isHomeView) return;
+
+    $.ajax({
+      url: 'ajax_home_pending.php',
+      method: 'GET',
+      dataType: 'json',
+      cache: false,
+      success: function(data){
+        if (!data || !data.ok) return;
+
+        $('#pendingCount').text(Number(data.pending_count || 0));
+        $('#taxPendingCount').text(Number(data.tax_pending_count || 0));
+
+        const pendingArr = Array.isArray(data.pending) ? data.pending : [];
+        const taxArr     = Array.isArray(data.tax_pending) ? data.tax_pending : [];
+
+        const topPendingId = pendingArr.length ? Number(pendingArr[0].id || 0) : 0;
+        const topTaxId     = taxArr.length ? Number(taxArr[0].id || 0) : 0;
+
+        if (pendingDT) {
+          const rows = pendingArr.map(buildPendingRow);
+          pendingDT.clear();
+          pendingDT.rows.add(rows);
+          pendingDT.draw(false);
+        }
+
+        if (taxDT) {
+          const rows2 = taxArr.map(buildTaxRow);
+          taxDT.clear();
+          taxDT.rows.add(rows2);
+          taxDT.draw(false);
+        }
+
+        lastPendingTopId = topPendingId || lastPendingTopId;
+        lastTaxTopId     = topTaxId || lastTaxTopId;
+      }
+    });
+  }
+
+  if (isHomeView) {
+    setTimeout(refreshHomeTables, 800);
+    setInterval(refreshHomeTables, 7000);
+  }
 
 });
 </script>

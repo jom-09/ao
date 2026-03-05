@@ -167,7 +167,7 @@ if($tab == 'dashboard') {
                     <div class="col-md-3">
                         <div class="stat-card">
                             <div class="stat-info">
-                                <h3><?= (int)$pending_count ?></h3>
+                                <h3 id="statPending"><?= (int)$pending_count ?></h3>
                                 <p>Pending Requests</p>
                             </div>
                             <div class="stat-icon"><i class="fas fa-clock"></i></div>
@@ -177,7 +177,7 @@ if($tab == 'dashboard') {
                     <div class="col-md-3">
                         <div class="stat-card">
                             <div class="stat-info">
-                                <h3><?= (int)$paid_count ?></h3>
+                                <h3 id="statPaid"><?= (int)$paid_count ?></h3>
                                 <p>Paid Requests</p>
                             </div>
                             <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
@@ -187,7 +187,7 @@ if($tab == 'dashboard') {
                     <div class="col-md-3">
                         <div class="stat-card">
                             <div class="stat-info">
-                                <h3><?= number_format((int)$total_faas) ?></h3>
+                                <h3 id="statTotalFaas"><?= number_format((int)$total_faas) ?></h3>
                                 <p>Total FAAS Records</p>
                             </div>
                             <div class="stat-icon"><i class="fas fa-file-alt"></i></div>
@@ -197,7 +197,7 @@ if($tab == 'dashboard') {
                     <div class="col-md-3">
                         <div class="stat-card">
                             <div class="stat-info">
-                                <h3><?= number_format((int)$master_total) ?></h3>
+                                <h3 id="statMasterTotal"><?= number_format((int)$master_total) ?></h3>
                                 <p>Master List Records</p>
                             </div>
                             <div class="stat-icon"><i class="fas fa-database"></i></div>
@@ -417,7 +417,7 @@ if ($req_barangay !== '' && $req_search !== '' && in_array($req_barangay, $allow
                         <th>Done</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="adminRequestsTbody">
                 <?php
                 $sql = "
                     SELECT
@@ -2133,6 +2133,109 @@ if(isset($_POST['bulk_add_faas'])){
         });
     }
 })();
+</script>
+
+<script>
+
+function refreshDashboard(){
+
+    $.getJSON('ajax_dashboard.php',function(data){
+
+        if(!data.ok) return;
+
+        $('#statPending').text(data.pending_count);
+        $('#statPaid').text(data.paid_count);
+        $('#statTotalFaas').text(Number(data.total_faas).toLocaleString());
+        $('#statMasterTotal').text(Number(data.master_total).toLocaleString());
+
+        if(window.pieChart){
+            pieChart.data.datasets[0].data = [
+                data.cert_items,
+                data.service_items
+            ];
+            pieChart.update();
+        }
+
+        if(window.weeklyChart){
+            weeklyChart.data.labels = data.weekly_labels;
+            weeklyChart.data.datasets[0].data = data.weekly_counts;
+            weeklyChart.update();
+        }
+
+    });
+
+}
+
+// refresh every 10 seconds
+setInterval(refreshDashboard,10000);
+
+</script>
+
+<script>
+
+function refreshRequests(){
+
+    $.getJSON('ajax_requests.php',function(data){
+
+        if(!data.ok) return;
+
+        let html='';
+
+        data.rows.forEach(r=>{
+
+            html+=`
+            <tr>
+
+            <td>#${r.id}</td>
+
+            <td>${r.fullname}</td>
+
+            <td>${r.address}</td>
+
+            <td>${r.purpose}</td>
+
+            <td>${r.items}</td>
+
+            <td>₱${Number(r.total_amount).toLocaleString()}</td>
+
+            <td>${r.control_number}</td>
+
+            <td>
+            <span class="status-badge ${r.status.toLowerCase()}">
+            ${r.status}
+            </span>
+            </td>
+
+            <td>${r.created_at_text}</td>
+
+            <td>
+
+            ${r.is_done
+                ? '<span class="status-badge paid">Done</span>'
+                : `<form method="POST">
+                <input type="hidden" name="mark_done_id" value="${r.id}">
+                <button class="btn btn-success btn-sm">
+                Mark as done
+                </button>
+                </form>`
+            }
+
+            </td>
+
+            </tr>
+            `;
+
+        });
+
+        $('#adminRequestsTbody').html(html);
+
+    });
+
+}
+
+// refresh every 7 seconds
+setInterval(refreshRequests,7000);
+
 </script>
 <?php endif; ?>
 <script src="../assets/js/admin.js" defer></script>

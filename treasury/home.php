@@ -108,7 +108,7 @@ $view = in_array($view, ['home','tax_history','transactions','installments'], tr
             'pinaripad_sur','progreso','ramos','rangayan',
             'san_antonio','san_benigno','san_francisco','san_leonardo',
             'san_manuel','san_ramon','victoria',
-            'villa_pagaduan','villa_santiago','villa_ventura'
+            'villa_pagaduan','villa_santiago','villa_ventura', 'ligaya'
           ];
           foreach($allowed_tables as $table) {
             echo "<option value='".$table."'>".ucfirst(str_replace('_', ' ', $table))."</option>";

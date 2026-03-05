@@ -165,7 +165,7 @@ $error = isset($_GET['error']) ? htmlspecialchars($_GET['error']) : '';
       class="form-control"
       required
       value="<?php echo htmlspecialchars((string)($request['control_number'] ?? '')); ?>"
-      placeholder="Enter control number..."
+      placeholder="Enter OR no."
     >
   </div>
 

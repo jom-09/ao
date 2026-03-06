@@ -9,8 +9,74 @@ $conn->set_charset("utf8mb4");
 function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
 
 // view switch
-$view = $_GET['view'] ?? 'home';
-$view = in_array($view, ['home','tax_history','transactions','installments'], true) ? $view : 'home';
+$view = $_GET['view'] ?? 'dashboard';
+$view = in_array($view, ['dashboard','requests','tax_history','transactions','installments'], true) ? $view : 'dashboard';
+
+/* ===============================
+   DASHBOARD DATA (COUNTS ONLY)
+================================= */
+$dash_paid_services_count = 0;    // total service items from PAID requests (requested_services)
+$dash_paid_tax_count      = 0;    // PAID in tax_requests
+$dash_paid_cert_count     = 0;    // total certificate items from PAID requests (request_items)
+
+$top_barangay_labels = [];
+$top_barangay_values = [];
+
+if ($view === 'dashboard') {
+
+  // 1) Count PAID Services (sum of service items under PAID requests)
+  try {
+    $dash_paid_services_count = (int)$conn->query("
+      SELECT COUNT(*) AS c
+      FROM requested_services rs
+      JOIN requests r ON r.id = rs.request_id
+      WHERE r.status='PAID'
+    ")->fetch_assoc()['c'];
+  } catch (Throwable $e) { $dash_paid_services_count = 0; }
+
+  // 2) Count PAID Tax
+  try {
+    $dash_paid_tax_count = (int)$conn->query("
+      SELECT COUNT(*) AS c
+      FROM tax_requests
+      WHERE status='PAID'
+    ")->fetch_assoc()['c'];
+  } catch (Throwable $e) { $dash_paid_tax_count = 0; }
+
+  // 3) Count Certificates Released (sum of certificate items under PAID requests)
+  try {
+    $dash_paid_cert_count = (int)$conn->query("
+      SELECT COUNT(*) AS c
+      FROM request_items ri
+      JOIN requests r ON r.id = ri.request_id
+      WHERE r.status='PAID'
+    ")->fetch_assoc()['c'];
+  } catch (Throwable $e) { $dash_paid_cert_count = 0; }
+
+  // 4) Top Barangay that pays tax (COUNT per address/barangay)
+  try {
+    $topRes = $conn->query("
+      SELECT
+        TRIM(address) AS barangay,
+        COUNT(*) AS pay_count
+      FROM tax_requests
+      WHERE status='PAID'
+        AND address IS NOT NULL
+        AND TRIM(address) <> ''
+      GROUP BY TRIM(address)
+      ORDER BY pay_count DESC
+      LIMIT 10
+    ");
+
+    while($r = $topRes->fetch_assoc()){
+      $top_barangay_labels[] = $r['barangay'];
+      $top_barangay_values[] = (int)$r['pay_count'];
+    }
+  } catch (Throwable $e) {
+    $top_barangay_labels = [];
+    $top_barangay_values = [];
+  }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -33,11 +99,16 @@ $view = in_array($view, ['home','tax_history','transactions','installments'], tr
   </div>
 
   <div class="nav-items">
-    <!-- ✅ NAV LINKS -->
     <div class="d-flex align-items-center gap-2 me-3">
-      <a href="home.php?view=home"
-         class="btn btn-sm <?= $view==='home' ? 'btn-light' : 'btn-outline-light' ?>">
-        <i class="fas fa-home me-1"></i> Home
+
+      <a href="home.php?view=dashboard"
+         class="btn btn-sm <?= $view==='dashboard' ? 'btn-light' : 'btn-outline-light' ?>">
+        <i class="fas fa-chart-column me-1"></i> Home
+      </a>
+
+      <a href="home.php?view=requests"
+         class="btn btn-sm <?= $view==='requests' ? 'btn-light' : 'btn-outline-light' ?>">
+        <i class="fas fa-inbox me-1"></i> Requests
       </a>
 
       <a href="home.php?view=tax_history"
@@ -70,7 +141,7 @@ $view = in_array($view, ['home','tax_history','transactions','installments'], tr
 
 <div class="main-container">
 
-  <!-- ✅ Alerts -->
+  <!-- Alerts -->
   <?php if (!empty($_GET['success'])): ?>
     <div class="alert alert-success alert-dismissible fade show" role="alert">
       <i class="fas fa-check-circle me-2"></i><?php echo h($_GET['success']); ?>
@@ -86,10 +157,75 @@ $view = in_array($view, ['home','tax_history','transactions','installments'], tr
   <?php endif; ?>
 
 
-  <?php if ($view === 'home'): ?>
-
+  <?php if ($view === 'dashboard'): ?>
     <!-- =========================
-         HOME: Search + Requests
+         DASHBOARD (COUNTS)
+    ========================== -->
+
+    <div class="row g-3 mb-3">
+      <div class="col-md-4">
+        <div class="dashboard-card">
+          <div class="card-header history-header">
+            <div class="header-left">
+              <i class="fas fa-handshake-angle"></i>
+              <h5>Paid Services</h5>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="display-6 fw-bold"><?php echo (int)$dash_paid_services_count; ?></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-4">
+        <div class="dashboard-card">
+          <div class="card-header history-header">
+            <div class="header-left">
+              <i class="fas fa-certificate"></i>
+              <h5>Certificates Released</h5>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="display-6 fw-bold"><?php echo (int)$dash_paid_cert_count; ?></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-4">
+        <div class="dashboard-card">
+          <div class="card-header history-header">
+            <div class="header-left">
+              <i class="fas fa-receipt"></i>
+              <h5>Paid Tax</h5>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="display-6 fw-bold"><?php echo (int)$dash_paid_tax_count; ?></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="dashboard-card">
+      <div class="card-header history-header">
+        <div class="header-left">
+          <i class="fas fa-chart-bar"></i>
+          <h5>Top Barangay (Tax Paid Count)</h5>
+        </div>
+      </div>
+      <div class="card-body">
+        <div style="height: 360px;">
+          <canvas id="topBarangayChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+  <?php endif; ?>
+
+
+  <?php if ($view === 'requests'): ?>
+    <!-- =========================
+         REQUESTS VIEW
     ========================== -->
 
     <!-- Person Search Section -->
@@ -108,17 +244,19 @@ $view = in_array($view, ['home','tax_history','transactions','installments'], tr
             'pinaripad_sur','progreso','ramos','rangayan',
             'san_antonio','san_benigno','san_francisco','san_leonardo',
             'san_manuel','san_ramon','victoria',
-            'villa_pagaduan','villa_santiago','villa_ventura', 'ligaya'
+            'villa_pagaduan','villa_santiago','villa_ventura','ligaya'
           ];
           foreach($allowed_tables as $table) {
             echo "<option value='".$table."'>".ucfirst(str_replace('_', ' ', $table))."</option>";
           }
           ?>
         </select>
+
         <div class="search-input-wrapper">
           <i class="fas fa-user search-icon"></i>
           <input type="text" class="person-search" id="personSearch" placeholder="Enter owner name...">
         </div>
+
         <button class="search-btn" id="searchPersonBtn">
           <i class="fas fa-search"></i>
           <span>Search Records</span>
@@ -126,7 +264,7 @@ $view = in_array($view, ['home','tax_history','transactions','installments'], tr
       </div>
     </div>
 
-    <!-- ✅ Person Records Table (NOW includes AV) -->
+    <!-- Person Records Table -->
     <div class="records-section" id="recordsSection" style="display:none;">
       <div class="section-header">
         <h4><i class="fas fa-database"></i> Property Records</h4>
@@ -228,7 +366,7 @@ $view = in_array($view, ['home','tax_history','transactions','installments'], tr
       </div>
     </div>
 
-    <!-- ✅ Tax Payment Requests Card (PENDING) -->
+    <!-- Tax Payment Requests Card (PENDING) -->
     <div class="dashboard-card">
       <div class="card-header pending-header">
         <div class="header-left">
@@ -378,7 +516,6 @@ $view = in_array($view, ['home','tax_history','transactions','installments'], tr
 
 
   <?php if ($view === 'installments'): ?>
-
     <!-- INSTALLMENTS VIEW -->
     <div class="dashboard-card">
       <div class="card-header history-header">
@@ -448,7 +585,6 @@ $view = in_array($view, ['home','tax_history','transactions','installments'], tr
         </table>
       </div>
     </div>
-
   <?php endif; ?>
 
 
@@ -459,14 +595,6 @@ $view = in_array($view, ['home','tax_history','transactions','installments'], tr
         <div class="header-left">
           <i class="fas fa-history"></i>
           <h5>Transaction History</h5>
-        </div>
-        <div class="filter-group">
-          <select class="filter-select" id="statusFilter">
-            <option value="">All Status</option>
-            <option value="PAID">Paid</option>
-            <option value="DECLINED">Declined</option>
-          </select>
-          <input type="text" class="filter-input" id="dateFilter" placeholder="Filter by date...">
         </div>
       </div>
 
@@ -532,14 +660,14 @@ $view = in_array($view, ['home','tax_history','transactions','installments'], tr
               <td>
                 <?php if($row['status']=='PAID'): ?>
                   <span class="status-badge paid"><i class="fas fa-check-circle"></i> PAID</span>
-                <?php elseif($row['status']=='DECLINED'): ?>
+                <?php else: ?>
                   <span class="status-badge declined"><i class="fas fa-times-circle"></i> DECLINED</span>
                 <?php endif; ?>
               </td>
               <td>
                 <span class="date">
                   <?php
-                    $dateToShow = $row['paid_at'] ? $row['paid_at'] : date('Y-m-d');
+                    $dateToShow = $row['paid_at'] ? $row['paid_at'] : $row['created_at'];
                     echo date('M d, Y', strtotime($dateToShow));
                   ?>
                 </span>
@@ -625,7 +753,7 @@ $view = in_array($view, ['home','tax_history','transactions','installments'], tr
             </div>
 
             <div class="col-md-4">
-              <label class="form-label fw-semibold">Control Number</label>
+              <label class="form-label fw-semibold">OR. no</label>
               <input type="text" class="form-control" name="control_number" id="tx_control" required>
             </div>
           </div>
@@ -811,17 +939,49 @@ $view = in_array($view, ['home','tax_history','transactions','installments'], tr
 <script src="../assets/js/jquery-3.7.1.min.js"></script>
 <script src="../assets/js/datatables.min.js"></script>
 <script src="../assets/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<!-- Notification Sound -->
+<audio id="notifSound" preload="auto">
+  <source src="../assets/sounds/notif.mp3" type="audio/mpeg">
+</audio>
 
 <script>
 $(document).ready(function() {
 
   /* ==========================
+     CONFIG: NOTIF MODE
+     - "TAX"     => beep ONLY new TAX requests
+     - "PENDING" => beep ONLY new Pending (cert/service) requests
+  ========================== */
+  const NOTIF_MODE = "TAX"; // <-- palitan mo to "PENDING" if yun gusto mo
+
+  /* ==========================
+     HELPERS
+  ========================== */
+  function peso(n){
+    return "₱" + Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function playNotif(){
+    const a = document.getElementById('notifSound');
+    if(!a) return;
+    a.currentTime = 0;
+    a.play().catch(()=>{});
+  }
+
+  // unlock audio on user gesture (browser restriction)
+  $(document).one('click keydown', function(){ playNotif(); });
+
+  /* ==========================
      DATATABLES
   ========================== */
+  let pendingDT = null;
+  let taxDT = null;
 
   if ($('#pendingTable').length) {
     $('#pendingCount').text($('#pendingTable tbody tr').length);
-    $('#pendingTable').DataTable({
+    pendingDT = $('#pendingTable').DataTable({
       pageLength: 10,
       lengthMenu: [[10, 25, 50, -1], [10, 25, 50, "All"]],
       language: { search: "<i class='fas fa-search'></i>", searchPlaceholder: "Search pending requests..." },
@@ -831,7 +991,7 @@ $(document).ready(function() {
   }
 
   if ($('#taxPendingTable').length) {
-    $('#taxPendingTable').DataTable({
+    taxDT = $('#taxPendingTable').DataTable({
       pageLength: 10,
       lengthMenu: [[10, 25, 50, -1], [10, 25, 50, "All"]],
       language: { search: "<i class='fas fa-search'></i>", searchPlaceholder: "Search tax requests...", emptyTable: "No pending tax requests." },
@@ -861,18 +1021,39 @@ $(document).ready(function() {
   }
 
   if ($('#historyTable').length) {
-    const historyTable = $('#historyTable').DataTable({
+    $('#historyTable').DataTable({
       pageLength: 10,
       lengthMenu: [[10, 25, 50, -1], [10, 25, 50, "All"]],
       language: { search: "<i class='fas fa-search'></i>", searchPlaceholder: "Search transactions..." },
       dom: '<"table-toolbar"f>rtip',
       initComplete: function() { $('#historyTable_filter input').attr('placeholder', 'Search history...'); }
     });
+  }
 
-    $('#statusFilter').on('change', function() {
-      const status = $(this).val();
-      if (status === '') historyTable.column(7).search('').draw();
-      else historyTable.column(7).search('^' + status + '$', true, false).draw();
+  /* ==========================
+     DASHBOARD CHART (COUNT)
+  ========================== */
+  const chartCanvas = document.getElementById('topBarangayChart');
+  if (chartCanvas) {
+    const labels = <?php echo json_encode($top_barangay_labels, JSON_UNESCAPED_UNICODE); ?>;
+    const values = <?php echo json_encode($top_barangay_values, JSON_UNESCAPED_UNICODE); ?>;
+
+    new Chart(chartCanvas, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'No. of PAID Tax Payments',
+          data: values,
+          borderWidth: 1
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: true } },
+        scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+      }
     });
   }
 
@@ -894,9 +1075,7 @@ $(document).ready(function() {
       data: { barangay: barangay, owner_name: ownerName },
       dataType: 'json',
       success: function(response) { displayPersonRecords(response); },
-      error: function() {
-        alert('Error searching records. Please try again.');
-      },
+      error: function() { alert('Error searching records. Please try again.'); },
       complete: function() {
         $('#searchPersonBtn').prop('disabled', false).html('<i class="fas fa-search"></i> Search Records');
       }
@@ -935,20 +1114,15 @@ $(document).ready(function() {
   });
 
   /* ==========================
-     TAX MODAL COMPUTE
-     ✅ FIX: single declaration only
+     TAX MODAL COMPUTE + OPEN
   ========================== */
-  function peso(n){
-    return "₱" + Number(n).toLocaleString(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    });
-  }
-
   let currentAV = 0;
 
-  $(document).on('click', '.btnProcessTax', function() {
-    const id = $(this).data('id');
+  $(document).on('click', '.btnProcessTax', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const id = Number($(this).data('id')) || 0;
     const owner = $(this).data('owner') || '';
     const arp = $(this).data('arp') || '';
     const av = Number($(this).data('av')) || 0;
@@ -971,6 +1145,7 @@ $(document).ready(function() {
     $('#tx_submit_btn').text('Mark as Paid');
 
     computeTax();
+
     new bootstrap.Modal(document.getElementById('taxPaymentModal')).show();
   });
 
@@ -1030,191 +1205,230 @@ $(document).ready(function() {
   }
 
   /* ==========================
-     INSTALLMENT MODAL (Schedule)
+     INSTALLMENT MODAL LOGIC
+     - requires ajax_installment_schedule.php
+       GET ?tax_request_id=ID
+       expected JSON:
+       {
+         ok: true,
+         quarter_amount: 123.45, // optional
+         schedule: [
+           { quarter:1, coverage:"Jan-Mar", due_date:"2026-03-31", status:"PAID/UNPAID/OVERDUE", amount:123.45, can_pay:true/false }
+         ]
+       }
   ========================== */
-  $(document).on('click', '.btnViewInstallment', function() {
-    const id = Number($(this).data('id')) || 0;
-    $('#inst_tax_request_id').val(id);
+  function renderScheduleRows(schedule, taxId){
+    const body = $('#instScheduleBody');
+    body.empty();
 
-    $('#inst_owner').text($(this).data('owner') || '');
-    $('#inst_arp').text($(this).data('arp') || '');
-    $('#inst_control').text($(this).data('control') || '');
+    if (!Array.isArray(schedule) || schedule.length === 0){
+      body.append('<tr><td colspan="6" class="text-center text-muted">No data</td></tr>');
+      return;
+    }
+
+    schedule.forEach(function(row){
+      const q = Number(row.quarter || 0);
+      const coverage = $('<div>').text(row.coverage || '').html();
+      const due = $('<div>').text(row.due_date || '').html();
+      const status = (row.status || '').toString().toUpperCase();
+      const amt = Number(row.amount || 0);
+
+      let statusBadge = `<span class="badge bg-secondary">${status || 'N/A'}</span>`;
+      if (status === 'PAID') statusBadge = `<span class="badge bg-success">PAID</span>`;
+      if (status === 'UNPAID') statusBadge = `<span class="badge bg-warning text-dark">UNPAID</span>`;
+      if (status === 'OVERDUE') statusBadge = `<span class="badge bg-danger">OVERDUE</span>`;
+
+      let actionHtml = `<span class="text-muted">—</span>`;
+      if (row.can_pay) {
+        actionHtml = `
+          <button type="button"
+            class="btn btn-sm btn-primary btnPayQuarter"
+            data-tax-id="${taxId}"
+            data-quarter="${q}"
+            data-amount="${amt.toFixed(2)}">
+            Pay
+          </button>
+        `;
+      }
+
+      body.append(`
+        <tr>
+          <td class="fw-semibold">Q${q}</td>
+          <td>${coverage}</td>
+          <td>${due}</td>
+          <td>${statusBadge}</td>
+          <td class="text-end">${peso(amt)}</td>
+          <td>${actionHtml}</td>
+        </tr>
+      `);
+    });
+  }
+
+  function loadInstallmentSchedule(taxId){
+    if(!taxId) return;
 
     $('#instScheduleBody').html('<tr><td colspan="6" class="text-center text-muted">Loading...</td></tr>');
 
     $.ajax({
-      url: 'get_installment_schedule.php',
-      method: 'POST',
+      url: 'ajax_installment_schedule.php',
+      method: 'GET',
       dataType: 'json',
-      data: { tax_request_id: id },
-      success: function(res) {
-        if (!res || res.error) {
-          $('#instScheduleBody').html('<tr><td colspan="6" class="text-center text-danger">' + (res.error || 'Error') + '</td></tr>');
+      cache: false,
+      data: { tax_request_id: taxId },
+      success: function(res){
+        if(!res || !res.ok){
+          const msg = (res && res.message) ? res.message : 'Failed to load schedule.';
+          $('#instScheduleBody').html('<tr><td colspan="6" class="text-center text-danger">'+$('<div>').text(msg).html()+'</td></tr>');
           return;
         }
-
-        let html = '';
-        res.forEach(function(r){
-          const qLabel = (r.quarter === 1 ? '1st' : r.quarter === 2 ? '2nd' : r.quarter === 3 ? '3rd' : '4th');
-          const statusBadge = (r.status === 'PAID')
-            ? '<span class="badge bg-success"><i class="fas fa-check-circle me-1"></i>PAID</span>'
-            : '<span class="badge bg-warning text-dark"><i class="fas fa-clock me-1"></i>PENDING</span>';
-
-          const amount = Number(r.amount || 0);
-          const amountText = amount.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
-
-          let actionBtn = '';
-          if (r.status === 'PAID') {
-            actionBtn = '<button class="btn btn-sm btn-outline-secondary" disabled>Paid</button>';
-          } else {
-            actionBtn = '<button class="btn btn-sm btn-primary btnPayQuarter" data-q="'+r.quarter+'" data-amount="'+amount+'"><i class="fas fa-coins me-1"></i>Pay</button>';
-          }
-
-          html += `
-            <tr>
-              <td><strong>${qLabel} Quarter</strong></td>
-              <td>${r.coverage}</td>
-              <td>${r.due_date_text}</td>
-              <td>${statusBadge}</td>
-              <td class="text-end">₱${amountText}</td>
-              <td>${actionBtn}</td>
-            </tr>
-          `;
-        });
-
-        $('#instScheduleBody').html(html);
+        renderScheduleRows(res.schedule || [], taxId);
       },
-      error: function() {
-        $('#instScheduleBody').html('<tr><td colspan="6" class="text-center text-danger">Request failed.</td></tr>');
+      error: function(){
+        $('#instScheduleBody').html('<tr><td colspan="6" class="text-center text-danger">Server error loading schedule.</td></tr>');
       }
     });
+  }
 
+  $(document).on('click', '.btnViewInstallment', function(){
+    const id = Number($(this).data('id')) || 0;
+    const owner = $(this).data('owner') || '';
+    const arp = $(this).data('arp') || '';
+    const control = $(this).data('control') || '';
+
+    $('#inst_tax_request_id').val(id);
+    $('#inst_owner').text(owner);
+    $('#inst_arp').text(arp);
+    $('#inst_control').text(control);
+
+    loadInstallmentSchedule(id);
     new bootstrap.Modal(document.getElementById('installmentModal')).show();
   });
 
   /* ==========================
-     QUARTER PAYMENT (Manual)
+     QUARTER PAYMENT MODAL LOGIC
+     - opens from schedule "Pay" button
+     - compute: discount + penalty months (2%/month) on quarter amount
+     - save via ajax_save_quarter_payment.php POST
+       expected JSON: { ok:true, message:"", ... }
   ========================== */
-  const fmt = (n) => "₱" + Number(n).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+  let qpBaseAmount = 0;
 
-  function computeQuarterTotal(){
-    let amount = Number($('#quarter_amount').data('raw')) || 0;
-    let discount = Number($('#discount_rate').val()) || 0;
-
+  function computeQuarterPayable(){
+    const discRate = Number($('#discount_rate').val()) || 0;
     let months = parseInt($('#penalty_months').val(), 10);
     if (isNaN(months)) months = 0;
     if (months < 0) months = 0;
     if (months > 36) months = 36;
     $('#penalty_months').val(months);
 
-    const discountAmt = amount * discount;
-    const afterDiscount = amount - discountAmt;
-    const penaltyAmt = afterDiscount * (0.02 * months);
-    const total = afterDiscount + penaltyAmt;
+    const discountAmt = qpBaseAmount * discRate;
+    const afterDisc = qpBaseAmount - discountAmt;
+    const penaltyAmt = afterDisc * (0.02 * months);
+    const total = afterDisc + penaltyAmt;
 
-    $('#qp_discount_amt').text(fmt(discountAmt));
-    $('#qp_penalty_amt').text(fmt(penaltyAmt));
-    $('#total_payable').text(fmt(total));
+    $('#qp_discount_amt').text(peso(discountAmt));
+    $('#qp_penalty_amt').text(peso(penaltyAmt));
+    $('#total_payable').text(peso(total));
+
+    return {
+      discount_rate: discRate,
+      penalty_months: months,
+      discount_amount: discountAmt,
+      penalty_amount: penaltyAmt,
+      total_payable: total
+    };
   }
 
-  $(document).on('click', '.btnPayQuarter', function() {
-    const taxId = Number($('#inst_tax_request_id').val()) || 0;
-    const quarter = Number($(this).data('q')) || 0;
+  $(document).on('click', '.btnPayQuarter', function(){
+    const taxId = Number($(this).data('tax-id')) || 0;
+    const quarter = Number($(this).data('quarter')) || 0;
     const amount = Number($(this).data('amount')) || 0;
-
-    if (!taxId || !quarter) return;
 
     $('#pay_tax_id').val(taxId);
     $('#pay_quarter').val(quarter);
 
-    $('#quarter_amount')
-      .val(fmt(amount))
-      .data('raw', amount);
+    qpBaseAmount = amount;
 
+    $('#quarter_amount').val(peso(amount));
     $('#discount_rate').val('0');
     $('#penalty_months').val('0');
-
-    computeQuarterTotal();
+    computeQuarterPayable();
 
     new bootstrap.Modal(document.getElementById('quarterPaymentModal')).show();
   });
 
-  $('#discount_rate, #penalty_months').on('change keyup', computeQuarterTotal);
+  $('#discount_rate, #penalty_months').on('change keyup', computeQuarterPayable);
 
-  // Save quarter payment
-  $('#btnSaveQuarter').on('click', function() {
+  $('#btnSaveQuarter').on('click', function(){
     const taxId = Number($('#pay_tax_id').val()) || 0;
     const quarter = Number($('#pay_quarter').val()) || 0;
-    const discountRate = Number($('#discount_rate').val()) || 0;
+    if(!taxId || !quarter){
+      alert('Missing tax id / quarter.');
+      return;
+    }
 
-    let months = parseInt($('#penalty_months').val(), 10);
-    if (isNaN(months)) months = 0;
-    if (months < 0) months = 0;
-    if (months > 36) months = 36;
-    $('#penalty_months').val(months);
-
-    if (!taxId || !quarter) return;
+    const calc = computeQuarterPayable();
 
     const btn = $(this);
     btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Saving...');
 
     $.ajax({
-      url: 'pay_installment.php',
+      url: 'ajax_save_quarter_payment.php',
       method: 'POST',
       dataType: 'json',
       data: {
         tax_request_id: taxId,
         quarter: quarter,
-        discount_rate: discountRate,
-        penalty_months: months
+        quarter_amount: qpBaseAmount.toFixed(2),
+        discount_rate: calc.discount_rate,
+        penalty_months: calc.penalty_months,
+        total_payable: calc.total_payable.toFixed(2)
       },
-      success: function(res) {
-        if (!res || res.error) {
-          alert(res.error || 'Error saving payment');
-          btn.prop('disabled', false).html('<i class="fas fa-save me-1"></i>Save Payment');
+      success: function(res){
+        if(!res || !res.ok){
+          alert((res && res.message) ? res.message : 'Failed to save quarter payment.');
           return;
         }
 
-        // close payment modal
-        const pm = bootstrap.Modal.getInstance(document.getElementById('quarterPaymentModal'));
-        if (pm) pm.hide();
+        // close quarter modal
+        const qmEl = document.getElementById('quarterPaymentModal');
+        const qm = bootstrap.Modal.getInstance(qmEl);
+        if (qm) qm.hide();
 
-        // refresh schedule
-        $('.btnViewInstallment[data-id="'+taxId+'"]').trigger('click');
-
-        btn.prop('disabled', false).html('<i class="fas fa-save me-1"></i>Save Payment');
+        // refresh schedule list
+        loadInstallmentSchedule(taxId);
       },
-      error: function() {
-        alert('Request failed.');
+      error: function(){
+        alert('Server error saving quarter payment.');
+      },
+      complete: function(){
         btn.prop('disabled', false).html('<i class="fas fa-save me-1"></i>Save Payment');
       }
     });
   });
 
   /* ==========================
-     AUTO REFRESH (HOME ONLY)
-     ✅ FIX: removed duplicate peso() here (we already have it above)
+     AUTO REFRESH + NOTIF SOUND (REQUESTS VIEW ONLY)
+     - polling endpoint: ajax_home_pending.php
+       expected JSON:
+       {
+         ok:true,
+         pending_count: 1,
+         tax_pending_count: 2,
+         pending:[{id, fullname, address, purpose, items, total_amount, date_text}],
+         tax_pending:[{id, declared_owner, arp_no, assessed_value, base_tax, status, date_text}]
+       }
+     - also rebuild tables so realtime update
   ========================== */
-  const isHomeView = new URLSearchParams(window.location.search).get('view') === null
-                 || new URLSearchParams(window.location.search).get('view') === 'home';
-
-  let pendingDT = null;
-  let taxDT = null;
-
-  if ($('#pendingTable').length) {
-    pendingDT = $.fn.DataTable.isDataTable('#pendingTable')
-      ? $('#pendingTable').DataTable()
-      : null;
-  }
-
-  if ($('#taxPendingTable').length) {
-    taxDT = $.fn.DataTable.isDataTable('#taxPendingTable')
-      ? $('#taxPendingTable').DataTable()
-      : null;
-  }
+  const qp = new URLSearchParams(window.location.search);
+  const currentView = qp.get('view') || 'dashboard';
+  const isRequestsView = (currentView === 'requests');
 
   let lastPendingTopId = 0;
   let lastTaxTopId = 0;
+
+  let lastPendingCount = Number($('#pendingCount').text() || 0);
+  let lastTaxCount = Number($('#taxPendingCount').text() || 0);
 
   function buildPendingRow(r){
     const id = Number(r.id || 0);
@@ -1230,23 +1444,17 @@ $(document).ready(function() {
       `<span class="amount">${peso(r.total_amount || 0)}</span>`,
       `<span class="date">${$('<div>').text(r.date_text || '').html()}</span>`,
       `
-        <a href="${urlAccept}" class="action-btn accept" title="Accept / Mark Paid">
-          <i class="fas fa-check"></i>
-        </a>
-        <a href="${urlDecline}" class="action-btn decline" title="Decline">
-          <i class="fas fa-times"></i>
-        </a>
+        <a href="${urlAccept}" class="action-btn accept" title="Accept / Mark Paid"><i class="fas fa-check"></i></a>
+        <a href="${urlDecline}" class="action-btn decline" title="Decline"><i class="fas fa-times"></i></a>
       `
     ];
   }
 
   function buildTaxRow(t){
     const id = Number(t.id || 0);
-
     const owner = $('<div>').text(t.declared_owner || '').html();
     const arp   = $('<div>').text(t.arp_no || '').html();
     const status = $('<div>').text(t.status || 'PENDING').html();
-
     const avRaw = Number(t.assessed_value || 0).toFixed(2);
 
     return [
@@ -1258,23 +1466,42 @@ $(document).ready(function() {
       `<span class="status-badge pending"><i class="fas fa-clock"></i> ${status}</span>`,
       `<span class="date">${$('<div>').text(t.date_text || '').html()}</span>`,
       `
-      <button
-        type="button"
-        class="action-btn accept btnProcessTax"
+      <button type="button" class="action-btn accept btnProcessTax"
         title="Process Payment"
         data-id="${id}"
         data-owner="${(t.declared_owner || '').replace(/"/g,'&quot;')}"
         data-arp="${(t.arp_no || '').replace(/"/g,'&quot;')}"
-        data-av="${avRaw}"
-      >
+        data-av="${avRaw}">
         <i class="fas fa-cash-register"></i>
       </button>
       `
     ];
   }
 
-  function refreshHomeTables(){
-    if (!isHomeView) return;
+  function shouldBeep(pendingArr, taxArr, pendingCountNow, taxCountNow){
+    const topPendingId = pendingArr.length ? Number(pendingArr[0].id || 0) : 0;
+    const topTaxId     = taxArr.length ? Number(taxArr[0].id || 0) : 0;
+
+    // check new by id
+    const pendingNewById = (topPendingId && topPendingId > lastPendingTopId);
+    const taxNewById     = (topTaxId && topTaxId > lastTaxTopId);
+
+    // check new by count
+    const pendingNewByCount = (pendingCountNow > lastPendingCount);
+    const taxNewByCount     = (taxCountNow > lastTaxCount);
+
+    // mode filter
+    if (NOTIF_MODE === "TAX") {
+      return (taxNewById || taxNewByCount);
+    }
+    if (NOTIF_MODE === "PENDING") {
+      return (pendingNewById || pendingNewByCount);
+    }
+    return false;
+  }
+
+  function refreshRequestsTables(){
+    if (!isRequestsView) return;
 
     $.ajax({
       url: 'ajax_home_pending.php',
@@ -1284,38 +1511,64 @@ $(document).ready(function() {
       success: function(data){
         if (!data || !data.ok) return;
 
-        $('#pendingCount').text(Number(data.pending_count || 0));
-        $('#taxPendingCount').text(Number(data.tax_pending_count || 0));
-
         const pendingArr = Array.isArray(data.pending) ? data.pending : [];
         const taxArr     = Array.isArray(data.tax_pending) ? data.tax_pending : [];
 
+        const pendingCountNow = Number(data.pending_count || 0);
+        const taxCountNow     = Number(data.tax_pending_count || 0);
+
+        // beep only when not initial
+        const isInitial = (lastPendingTopId === 0 && lastTaxTopId === 0);
+
+        if (!isInitial && shouldBeep(pendingArr, taxArr, pendingCountNow, taxCountNow)) {
+          playNotif();
+        }
+
+        // update counters
+        $('#pendingCount').text(pendingCountNow);
+        $('#taxPendingCount').text(taxCountNow);
+
+        // update last trackers
         const topPendingId = pendingArr.length ? Number(pendingArr[0].id || 0) : 0;
         const topTaxId     = taxArr.length ? Number(taxArr[0].id || 0) : 0;
 
+        if (topPendingId) lastPendingTopId = topPendingId;
+        if (topTaxId) lastTaxTopId = topTaxId;
+
+        lastPendingCount = pendingCountNow;
+        lastTaxCount     = taxCountNow;
+
+        // rebuild tables
         if (pendingDT) {
-          const rows = pendingArr.map(buildPendingRow);
           pendingDT.clear();
-          pendingDT.rows.add(rows);
+          pendingDT.rows.add(pendingArr.map(buildPendingRow));
           pendingDT.draw(false);
         }
-
         if (taxDT) {
-          const rows2 = taxArr.map(buildTaxRow);
           taxDT.clear();
-          taxDT.rows.add(rows2);
+          taxDT.rows.add(taxArr.map(buildTaxRow));
           taxDT.draw(false);
         }
-
-        lastPendingTopId = topPendingId || lastPendingTopId;
-        lastTaxTopId     = topTaxId || lastTaxTopId;
       }
     });
   }
 
-  if (isHomeView) {
-    setTimeout(refreshHomeTables, 800);
-    setInterval(refreshHomeTables, 7000);
+  if (isRequestsView) {
+    // set initial trackers based on current table (avoid beep on first load)
+    setTimeout(function(){
+      lastPendingCount = Number($('#pendingCount').text() || 0);
+      lastTaxCount = Number($('#taxPendingCount').text() || 0);
+
+      // prime IDs using current DOM rows if any
+      const pFirst = $('#pendingTable tbody tr:first .id-badge').text().replace('#','');
+      const tFirst = $('#taxPendingTable tbody tr:first .id-badge').text().replace('#','');
+      lastPendingTopId = Number(pFirst || 0) || 0;
+      lastTaxTopId = Number(tFirst || 0) || 0;
+
+      refreshRequestsTables();
+    }, 700);
+
+    setInterval(refreshRequestsTables, 7000);
   }
 
 });

@@ -28,6 +28,44 @@ $certificates = [
     'actual_use'     => 'Actual Location',
 ];
 
+/* =========================================
+   SAFE DOCX DOWNLOAD FUNCTION
+========================================= */
+function downloadDocxTemplate($template, $filename) {
+    // clear any existing output buffer
+    while (ob_get_level()) {
+        ob_end_clean();
+    }
+
+    $tmpBase = tempnam(sys_get_temp_dir(), 'docx_');
+    $docxFile = $tmpBase . '.docx';
+
+    // remove original temp file then use .docx
+    if (file_exists($tmpBase)) {
+        @unlink($tmpBase);
+    }
+
+    $template->saveAs($docxFile);
+
+    if (!file_exists($docxFile)) {
+        exit('Failed to generate document.');
+    }
+
+    header('Content-Description: File Transfer');
+    header('Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    header('Content-Disposition: attachment; filename="' . basename($filename) . '"');
+    header('Content-Transfer-Encoding: binary');
+    header('Expires: 0');
+    header('Cache-Control: must-revalidate, post-check=0, pre-check=0');
+    header('Pragma: public');
+    header('Content-Length: ' . filesize($docxFile));
+
+    flush();
+    readfile($docxFile);
+    @unlink($docxFile);
+    exit;
+}
+
 if (isset($_POST['generate'])) {
 
     $cert_type      = $_POST['cert_type'] ?? '';
@@ -105,8 +143,10 @@ if (isset($_POST['generate'])) {
                 }
 
                 // avoid mixing same-name persons
-                if ($r['declared_owner'] === $picked_owner['declared_owner'] &&
-                    $r['owner_address'] === $picked_owner['owner_address']) {
+                if (
+                    $r['declared_owner'] === $picked_owner['declared_owner'] &&
+                    $r['owner_address'] === $picked_owner['owner_address']
+                ) {
                     $holdings[] = $r;
                 }
             }
@@ -143,7 +183,10 @@ if (isset($_POST['generate'])) {
 
                 case 'tax_dec': {
                     $template_path = '../templates/tax_declaration_template.docx';
-                    if(!file_exists($template_path)) { $errors[] = "Template not found: $template_path"; break; }
+                    if (!file_exists($template_path)) {
+                        $errors[] = "Template not found: $template_path";
+                        break;
+                    }
 
                     $arp_final = $data['ARP_No.'] ?? '';
                     $cancels_final = '';
@@ -171,17 +214,15 @@ if (isset($_POST['generate'])) {
                     $template->setValue('av', $data['av'] ?? '');
 
                     $filename = "Tax_Declaration_" . ($data['ARP_No.'] ?? 'record') . ".docx";
-
-                    ob_clean();
-                    header('Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-                    header("Content-Disposition: attachment; filename=\"$filename\"");
-                    $template->saveAs("php://output");
-                    exit;
+                    downloadDocxTemplate($template, $filename);
                 }
 
                 case 'no_improvement': {
                     $template_path = '../templates/no_improvement_template.docx';
-                    if(!file_exists($template_path)) { $errors[] = "Template not found: $template_path"; break; }
+                    if (!file_exists($template_path)) {
+                        $errors[] = "Template not found: $template_path";
+                        break;
+                    }
 
                     $template = new TemplateProcessor($template_path);
 
@@ -201,17 +242,15 @@ if (isset($_POST['generate'])) {
                     $template->setValue('year', date('Y'));
 
                     $filename = "No_Improvement_" . ($data['ARP_No.'] ?? 'record') . ".docx";
-
-                    ob_clean();
-                    header('Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-                    header("Content-Disposition: attachment; filename=\"$filename\"");
-                    $template->saveAs("php://output");
-                    exit;
+                    downloadDocxTemplate($template, $filename);
                 }
 
                 case 'no_declared': {
                     $template_path = '../templates/no_declared_template.docx';
-                    if(!file_exists($template_path)) { $errors[] = "Template not found: $template_path"; break; }
+                    if (!file_exists($template_path)) {
+                        $errors[] = "Template not found: $template_path";
+                        break;
+                    }
 
                     $template = new TemplateProcessor($template_path);
 
@@ -223,17 +262,15 @@ if (isset($_POST['generate'])) {
                     $template->setValue('year', date('Y'));
 
                     $filename = "No_Declared_" . (($data['declared_owner'] ?? 'record')) . ".docx";
-
-                    ob_clean();
-                    header('Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-                    header("Content-Disposition: attachment; filename=\"$filename\"");
-                    $template->saveAs("php://output");
-                    exit;
+                    downloadDocxTemplate($template, $filename);
                 }
 
                 case 'total_land': {
                     $template_path = '../templates/total_land_template.docx';
-                    if(!file_exists($template_path)) { $errors[] = "Template not found: $template_path"; break; }
+                    if (!file_exists($template_path)) {
+                        $errors[] = "Template not found: $template_path";
+                        break;
+                    }
 
                     if (!isset($data['holdings']) || !is_array($data['holdings']) || count($data['holdings']) === 0) {
                         $errors[] = "No holdings found for this owner.";
@@ -268,48 +305,31 @@ if (isset($_POST['generate'])) {
                     $safeOwner = str_replace(' ', '_', trim($safeOwner));
                     $filename = "Total_Land_Holding_" . ($safeOwner ?: 'record') . ".docx";
 
-                    ob_clean();
-
-                    $tmpFile = tempnam(sys_get_temp_dir(), 'docx_') . '.docx';
-                    $template->saveAs($tmpFile);
-
-                    header('Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-                    header('Content-Disposition: attachment; filename="'.$filename.'"');
-                    header('Content-Length: ' . filesize($tmpFile));
-                    header('Cache-Control: must-revalidate');
-                    header('Pragma: public');
-
-                    readfile($tmpFile);
-                    @unlink($tmpFile);
-                    exit;
+                    downloadDocxTemplate($template, $filename);
                 }
 
                 case 'actual_use': {
-                    // IMPORTANT: confirm your real template filename here
-                    // If your template is ../templates/actual_use.docx, change this to that.
                     $template_path = '../templates/actual_location.docx';
-                    if(!file_exists($template_path)) { $errors[] = "Template not found: $template_path"; break; }
+                    if (!file_exists($template_path)) {
+                        $errors[] = "Template not found: $template_path";
+                        break;
+                    }
 
                     $template = new TemplateProcessor($template_path);
 
                     $template->setValue('declared_owner', $data['declared_owner'] ?? '');
-                    $template->setValue('arp_no',         $data['ARP_No.'] ?? '');
-                    $template->setValue('title',          $data['title'] ?? '');
-                    $template->setValue('lot',            $data['lot'] ?? '');
+                    $template->setValue('arp_no', $data['ARP_No.'] ?? '');
+                    $template->setValue('title', $data['title'] ?? '');
+                    $template->setValue('lot', $data['lot'] ?? '');
                     $template->setValue('property_location', $data['property_location'] ?? '');
-                    $template->setValue('area',           $data['area'] ?? '');
+                    $template->setValue('area', $data['area'] ?? '');
 
                     $template->setValue('day', date('d'));
                     $template->setValue('month', date('F'));
                     $template->setValue('year', date('Y'));
 
                     $filename = "Actual_Location_" . (($data['ARP_No.'] ?? 'record')) . ".docx";
-
-                    ob_clean();
-                    header('Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-                    header("Content-Disposition: attachment; filename=\"$filename\"");
-                    $template->saveAs("php://output");
-                    exit;
+                    downloadDocxTemplate($template, $filename);
                 }
 
                 default:

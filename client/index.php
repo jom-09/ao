@@ -153,32 +153,41 @@ if (isset($_GET['success'])) $success = htmlspecialchars($_GET['success']);
 
                     <div class="purpose-options" id="purposeContainer">
 
-                        <!-- Certification Issuance -->
-                        <label class="purpose-option" data-value="cert">
-                            <input type="radio" name="service" value="cert" class="purpose-checkbox" required>
-                            <div class="option-card">
-                                <div class="option-check"><i class="bi bi-check-lg"></i></div>
-                                <span>Certification Issuance</span>
-                            </div>
-                        </label>
+                    <!-- Certification Issuance -->
+<label class="purpose-option" data-value="cert">
+    <input type="radio" name="service" value="cert" class="purpose-checkbox" required>
+    <div class="option-card">
+        <div class="option-check"><i class="bi bi-check-lg"></i></div>
+        <span>Certification Issuance</span>
+    </div>
+</label>
 
-                        <!-- Pay Tax -->
-                        <label class="purpose-option" data-value="tax">
-                            <input type="radio" name="service" value="tax" class="purpose-checkbox" required>
-                            <div class="option-card">
-                                <div class="option-check"><i class="bi bi-check-lg"></i></div>
-                                <span>Pay Tax</span>
-                            </div>
-                        </label>
+<!-- Pay Tax -->
+<label class="purpose-option" data-value="tax">
+    <input type="radio" name="service" value="tax" class="purpose-checkbox" required>
+    <div class="option-card">
+        <div class="option-check"><i class="bi bi-check-lg"></i></div>
+        <span>Pay Tax</span>
+    </div>
+</label>
 
-                        <!-- Services -->
-                        <label class="purpose-option" data-value="svc">
-                            <input type="radio" name="service" value="svc" class="purpose-checkbox" required>
-                            <div class="option-card">
-                                <div class="option-check"><i class="bi bi-check-lg"></i></div>
-                                <span>Services</span>
-                            </div>
-                        </label>
+<!-- Services -->
+<label class="purpose-option" data-value="svc">
+    <input type="radio" name="service" value="svc" class="purpose-checkbox" required>
+    <div class="option-card">
+        <div class="option-check"><i class="bi bi-check-lg"></i></div>
+        <span>Services</span>
+    </div>
+</label>
+
+<!-- Tax Clearance -->
+<label class="purpose-option" data-value="tax_clearance">
+    <input type="radio" name="service" value="tax_clearance" class="purpose-checkbox" required>
+    <div class="option-card">
+        <div class="option-check"><i class="bi bi-check-lg"></i></div>
+        <span>Tax Clearance</span>
+    </div>
+</label>
 
                     </div>
 
@@ -216,11 +225,65 @@ if (isset($_GET['success'])) $success = htmlspecialchars($_GET['success']);
     <div class="bg-decoration"></div>
 </div>
 
+<!-- TAX CLEARANCE MODAL -->
+<div class="modal fade" id="taxClearanceModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <form method="POST" action="submit_tax_clearance.php">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Tax Clearance Request</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+
+        <div class="modal-body">
+          <div class="alert alert-warning mb-3">
+            <strong>Note:</strong> Please prepare your latest receipt.
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">First Name</label>
+            <input type="text" name="firstname" class="form-control" required>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Middle Name</label>
+            <input type="text" name="middlename" class="form-control">
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Last Name</label>
+            <input type="text" name="lastname" class="form-control" required>
+          </div>
+
+          <!-- if meron ka nang session values for address/contact, pwede mo rin ipasa -->
+          <input type="hidden" name="purpose" value="Tax Clearance">
+        </div>
+
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary">Submit Request</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>  
 <!-- Framework JS -->
 <script src="../assets/js/bootstrap.bundle.min.js"></script>
 
 <!-- ✅ CSP-SAFE external JS (create this file) -->
 <script src="../assets/js/client_index.js" defer></script>
+
+<script>
+document.querySelectorAll('.purpose-checkbox').forEach(radio => {
+    radio.addEventListener('change', function(){
+
+        if(this.value === "tax_clearance"){
+            var modal = new bootstrap.Modal(document.getElementById('taxClearanceModal'));
+            modal.show();
+        }
+
+    });
+});
+</script>
 
 </body>
 </html>

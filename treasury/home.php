@@ -285,14 +285,26 @@ if ($view === 'dashboard') {
       </div>
     </div>
 
-    <!-- Pending Requests Card (CERT/SVC) -->
+    <!-- Pending Requests Card (CERT/SVC ONLY) -->
     <div class="dashboard-card">
       <div class="card-header pending-header">
         <div class="header-left">
           <i class="fas fa-clock"></i>
           <h5>Pending Requests</h5>
         </div>
-        <span class="badge pending-badge" id="pendingCount">0</span>
+        <?php
+          $pendingCertSvcCount = 0;
+          try {
+            $pendingCertSvcCount = (int)$conn->query("
+              SELECT COUNT(*) AS c
+              FROM requests r
+              JOIN clients c ON r.client_id = c.id
+              WHERE r.status='PENDING'
+                AND c.purpose <> 'Tax Clearance'
+            ")->fetch_assoc()['c'];
+          } catch (Throwable $e) { $pendingCertSvcCount = 0; }
+        ?>
+        <span class="badge pending-badge" id="pendingCount"><?php echo (int)$pendingCertSvcCount; ?></span>
       </div>
 
       <div class="card-body">
@@ -334,14 +346,18 @@ if ($view === 'dashboard') {
             FROM requests r
             JOIN clients c ON r.client_id = c.id
             WHERE r.status='PENDING'
+              AND c.purpose <> 'Tax Clearance'
             ORDER BY r.created_at DESC
           ";
           $result = $conn->query($sql);
 
           while($row=$result->fetch_assoc()):
             $items = "-";
-            if (!empty($row['certificate_list'])) $items = $row['certificate_list'];
-            elseif (!empty($row['service_list'])) $items = $row['service_list'];
+            if (!empty($row['certificate_list'])) {
+              $items = $row['certificate_list'];
+            } elseif (!empty($row['service_list'])) {
+              $items = $row['service_list'];
+            }
           ?>
             <tr>
               <td><span class="id-badge">#<?php echo (int)$row['id']; ?></span></td>
@@ -361,6 +377,109 @@ if ($view === 'dashboard') {
               </td>
             </tr>
           <?php endwhile; ?>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Tax Clearance Requests Card (FROM CLIENTS TABLE ONLY) -->
+    <div class="dashboard-card">
+      <div class="card-header pending-header">
+        <div class="header-left">
+          <i class="fas fa-file-alt"></i>
+          <h5>Tax Clearance Requests</h5>
+        </div>
+        <?php
+          $taxClearanceCount = 0;
+          try {
+            $taxClearanceCount = (int)$conn->query("
+              SELECT COUNT(*) AS c
+              FROM clients c
+              WHERE c.purpose='Tax Clearance'
+              AND NOT EXISTS (
+              SELECT 1
+              FROM requests r
+              WHERE r.client_id = c.id
+              AND r.status = 'PAID'
+              )
+              ")->fetch_assoc()['c'];
+          } catch (Throwable $e) { $taxClearanceCount = 0; }
+        ?>
+        <span class="badge pending-badge" id="taxClearanceCount"><?php echo (int)$taxClearanceCount; ?></span>
+      </div>
+
+      <div class="card-body">
+        <table class="modern-table" id="taxClearanceTable">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Requester</th>
+              <th>Address</th>
+              <th>Contact</th>
+              <th>Purpose</th>
+              <th>Requirement</th>
+              <th>Date</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+          <?php
+try {
+  $sqlTC = "
+    SELECT
+      c.id,
+      c.firstname,
+      c.middlename,
+      c.lastname,
+      c.address,
+      c.cp_no,
+      c.purpose,
+      c.created_at
+    FROM clients c
+    WHERE c.purpose='Tax Clearance'
+      AND NOT EXISTS (
+        SELECT 1
+        FROM requests r
+        WHERE r.client_id = c.id
+          AND r.status = 'PAID'
+      )
+    ORDER BY c.created_at DESC
+  ";
+  $resultTC = $conn->query($sqlTC);
+
+  while($rowTC = $resultTC->fetch_assoc()):
+    $fullname = trim(
+      ($rowTC['firstname'] ?? '') . ' ' .
+      ($rowTC['middlename'] ?? '') . ' ' .
+      ($rowTC['lastname'] ?? '')
+    );
+?>
+  <tr>
+    <td><span class="id-badge">#<?php echo (int)$rowTC['id']; ?></span></td>
+    <td><span class="client-name"><?php echo h($fullname); ?></span></td>
+    <td><?php echo h($rowTC['address'] ?? ''); ?></td>
+    <td><?php echo h($rowTC['cp_no'] ?? ''); ?></td>
+    <td><?php echo h($rowTC['purpose'] ?? ''); ?></td>
+    <td><span class="certs-list">Prepare latest receipt</span></td>
+    <td><span class="date"><?php echo date('M d, Y', strtotime($rowTC['created_at'])); ?></span></td>
+    <td class="actions">
+      <button
+        type="button"
+        class="action-btn accept btnDoneTaxClearance"
+        title="Mark as Done"
+        data-id="<?php echo (int)$rowTC['id']; ?>"
+      >
+        <i class="fas fa-check"></i>
+      </button>
+    </td>
+  </tr>
+<?php
+  endwhile;
+} catch (Throwable $e) { /* keep empty */ }
+?>
+            endwhile;
+          } catch (Throwable $e) { /* keep empty */ }
+          ?>
           </tbody>
         </table>
       </div>
@@ -625,6 +744,7 @@ if ($view === 'dashboard') {
               r.control_number,
               r.status,
               r.paid_at,
+              r.created_at,
               (
                 SELECT GROUP_CONCAT(cert.certificate_name SEPARATOR ', ')
                 FROM request_items ri
@@ -646,8 +766,13 @@ if ($view === 'dashboard') {
 
           while($row=$result2->fetch_assoc()):
             $items2 = "-";
-            if (!empty($row['certificate_list'])) $items2 = $row['certificate_list'];
-            elseif (!empty($row['service_list'])) $items2 = $row['service_list'];
+            if (!empty($row['certificate_list'])) {
+              $items2 = $row['certificate_list'];
+            } elseif (!empty($row['service_list'])) {
+              $items2 = $row['service_list'];
+            } elseif (($row['purpose'] ?? '') === 'Tax Clearance') {
+              $items2 = 'Prepare latest receipt';
+            }
           ?>
             <tr>
               <td><span class="id-badge">#<?php echo (int)$row['id']; ?></span></td>
@@ -655,7 +780,11 @@ if ($view === 'dashboard') {
               <td><?php echo h($row['address'] ?? ''); ?></td>
               <td><?php echo h($row['purpose']); ?></td>
               <td><?php echo h($items2); ?></td>
-              <td><span class="amount">₱<?php echo number_format((float)$row['total_amount'],2); ?></span></td>
+              <td>
+                <span class="amount">
+                  <?php echo ((float)$row['total_amount'] > 0) ? '₱'.number_format((float)$row['total_amount'],2) : '-'; ?>
+                </span>
+              </td>
               <td><span class="control-no"><?php echo h($row['control_number']); ?></span></td>
               <td>
                 <?php if($row['status']=='PAID'): ?>
@@ -951,10 +1080,8 @@ $(document).ready(function() {
 
   /* ==========================
      CONFIG: NOTIF MODE
-     - "TAX"     => beep ONLY new TAX requests
-     - "PENDING" => beep ONLY new Pending (cert/service) requests
   ========================== */
-  const NOTIF_MODE = "TAX"; // <-- palitan mo to "PENDING" if yun gusto mo
+  const NOTIF_MODE = "TAX"; // pwede mo palitan ng "PENDING"
 
   /* ==========================
      HELPERS
@@ -970,23 +1097,38 @@ $(document).ready(function() {
     a.play().catch(()=>{});
   }
 
-  // unlock audio on user gesture (browser restriction)
   $(document).one('click keydown', function(){ playNotif(); });
 
   /* ==========================
      DATATABLES
   ========================== */
   let pendingDT = null;
+  let taxClearanceDT = null;
   let taxDT = null;
 
   if ($('#pendingTable').length) {
-    $('#pendingCount').text($('#pendingTable tbody tr').length);
     pendingDT = $('#pendingTable').DataTable({
       pageLength: 10,
       lengthMenu: [[10, 25, 50, -1], [10, 25, 50, "All"]],
       language: { search: "<i class='fas fa-search'></i>", searchPlaceholder: "Search pending requests..." },
       dom: '<"table-toolbar"f>rtip',
       initComplete: function() { $('#pendingTable_filter input').attr('placeholder', 'Search pending...'); }
+    });
+  }
+
+  if ($('#taxClearanceTable').length) {
+    taxClearanceDT = $('#taxClearanceTable').DataTable({
+      pageLength: 10,
+      lengthMenu: [[10, 25, 50, -1], [10, 25, 50, "All"]],
+      language: {
+        search: "<i class='fas fa-search'></i>",
+        searchPlaceholder: "Search tax clearance requests...",
+        emptyTable: "No tax clearance requests."
+      },
+      dom: '<"table-toolbar"f>rtip',
+      initComplete: function() {
+        $('#taxClearanceTable_filter input').attr('placeholder', 'Search tax clearance requests...');
+      }
     });
   }
 
@@ -1206,16 +1348,6 @@ $(document).ready(function() {
 
   /* ==========================
      INSTALLMENT MODAL LOGIC
-     - requires ajax_installment_schedule.php
-       GET ?tax_request_id=ID
-       expected JSON:
-       {
-         ok: true,
-         quarter_amount: 123.45, // optional
-         schedule: [
-           { quarter:1, coverage:"Jan-Mar", due_date:"2026-03-31", status:"PAID/UNPAID/OVERDUE", amount:123.45, can_pay:true/false }
-         ]
-       }
   ========================== */
   function renderScheduleRows(schedule, taxId){
     const body = $('#instScheduleBody');
@@ -1306,10 +1438,6 @@ $(document).ready(function() {
 
   /* ==========================
      QUARTER PAYMENT MODAL LOGIC
-     - opens from schedule "Pay" button
-     - compute: discount + penalty months (2%/month) on quarter amount
-     - save via ajax_save_quarter_payment.php POST
-       expected JSON: { ok:true, message:"", ... }
   ========================== */
   let qpBaseAmount = 0;
 
@@ -1390,12 +1518,10 @@ $(document).ready(function() {
           return;
         }
 
-        // close quarter modal
         const qmEl = document.getElementById('quarterPaymentModal');
         const qm = bootstrap.Modal.getInstance(qmEl);
         if (qm) qm.hide();
 
-        // refresh schedule list
         loadInstallmentSchedule(taxId);
       },
       error: function(){
@@ -1408,26 +1534,18 @@ $(document).ready(function() {
   });
 
   /* ==========================
-     AUTO REFRESH + NOTIF SOUND (REQUESTS VIEW ONLY)
-     - polling endpoint: ajax_home_pending.php
-       expected JSON:
-       {
-         ok:true,
-         pending_count: 1,
-         tax_pending_count: 2,
-         pending:[{id, fullname, address, purpose, items, total_amount, date_text}],
-         tax_pending:[{id, declared_owner, arp_no, assessed_value, base_tax, status, date_text}]
-       }
-     - also rebuild tables so realtime update
+     AUTO REFRESH + NOTIF SOUND
   ========================== */
   const qp = new URLSearchParams(window.location.search);
   const currentView = qp.get('view') || 'dashboard';
   const isRequestsView = (currentView === 'requests');
 
   let lastPendingTopId = 0;
+  let lastTaxClearanceTopId = 0;
   let lastTaxTopId = 0;
 
   let lastPendingCount = Number($('#pendingCount').text() || 0);
+  let lastTaxClearanceCount = Number($('#taxClearanceCount').text() || 0);
   let lastTaxCount = Number($('#taxPendingCount').text() || 0);
 
   function buildPendingRow(r){
@@ -1446,6 +1564,29 @@ $(document).ready(function() {
       `
         <a href="${urlAccept}" class="action-btn accept" title="Accept / Mark Paid"><i class="fas fa-check"></i></a>
         <a href="${urlDecline}" class="action-btn decline" title="Decline"><i class="fas fa-times"></i></a>
+      `
+    ];
+  }
+
+    function buildTaxClearanceRow(r){
+    const id = Number(r.id || 0);
+
+    return [
+      `<span class="id-badge">#${id}</span>`,
+      `<span class="client-name">${$('<div>').text(r.fullname || '').html()}</span>`,
+      `${$('<div>').text(r.address || '').html()}`,
+      `${$('<div>').text(r.cp_no || '').html()}`,
+      `${$('<div>').text(r.purpose || '').html()}`,
+      `<span class="certs-list">Prepare latest receipt</span>`,
+      `<span class="date">${$('<div>').text(r.date_text || '').html()}</span>`,
+      `
+        <button
+          type="button"
+          class="action-btn accept btnDoneTaxClearance"
+          title="Mark as Done"
+          data-id="${id}">
+          <i class="fas fa-check"></i>
+        </button>
       `
     ];
   }
@@ -1478,24 +1619,24 @@ $(document).ready(function() {
     ];
   }
 
-  function shouldBeep(pendingArr, taxArr, pendingCountNow, taxCountNow){
+  function shouldBeep(pendingArr, taxClearanceArr, taxArr, pendingCountNow, taxClearanceCountNow, taxCountNow){
     const topPendingId = pendingArr.length ? Number(pendingArr[0].id || 0) : 0;
-    const topTaxId     = taxArr.length ? Number(taxArr[0].id || 0) : 0;
+    const topTaxClearanceId = taxClearanceArr.length ? Number(taxClearanceArr[0].id || 0) : 0;
+    const topTaxId = taxArr.length ? Number(taxArr[0].id || 0) : 0;
 
-    // check new by id
     const pendingNewById = (topPendingId && topPendingId > lastPendingTopId);
-    const taxNewById     = (topTaxId && topTaxId > lastTaxTopId);
+    const taxClearanceNewById = (topTaxClearanceId && topTaxClearanceId > lastTaxClearanceTopId);
+    const taxNewById = (topTaxId && topTaxId > lastTaxTopId);
 
-    // check new by count
     const pendingNewByCount = (pendingCountNow > lastPendingCount);
-    const taxNewByCount     = (taxCountNow > lastTaxCount);
+    const taxClearanceNewByCount = (taxClearanceCountNow > lastTaxClearanceCount);
+    const taxNewByCount = (taxCountNow > lastTaxCount);
 
-    // mode filter
     if (NOTIF_MODE === "TAX") {
       return (taxNewById || taxNewByCount);
     }
     if (NOTIF_MODE === "PENDING") {
-      return (pendingNewById || pendingNewByCount);
+      return (pendingNewById || pendingNewByCount || taxClearanceNewById || taxClearanceNewByCount);
     }
     return false;
   }
@@ -1512,38 +1653,47 @@ $(document).ready(function() {
         if (!data || !data.ok) return;
 
         const pendingArr = Array.isArray(data.pending) ? data.pending : [];
-        const taxArr     = Array.isArray(data.tax_pending) ? data.tax_pending : [];
+        const taxClearanceArr = Array.isArray(data.tax_clearance) ? data.tax_clearance : [];
+        const taxArr = Array.isArray(data.tax_pending) ? data.tax_pending : [];
 
         const pendingCountNow = Number(data.pending_count || 0);
-        const taxCountNow     = Number(data.tax_pending_count || 0);
+        const taxClearanceCountNow = Number(data.tax_clearance_count || 0);
+        const taxCountNow = Number(data.tax_pending_count || 0);
 
-        // beep only when not initial
-        const isInitial = (lastPendingTopId === 0 && lastTaxTopId === 0);
+        const isInitial = (lastPendingTopId === 0 && lastTaxTopId === 0 && lastTaxClearanceTopId === 0);
 
-        if (!isInitial && shouldBeep(pendingArr, taxArr, pendingCountNow, taxCountNow)) {
+        if (!isInitial && shouldBeep(pendingArr, taxClearanceArr, taxArr, pendingCountNow, taxClearanceCountNow, taxCountNow)) {
           playNotif();
         }
 
-        // update counters
         $('#pendingCount').text(pendingCountNow);
+        $('#taxClearanceCount').text(taxClearanceCountNow);
         $('#taxPendingCount').text(taxCountNow);
 
-        // update last trackers
         const topPendingId = pendingArr.length ? Number(pendingArr[0].id || 0) : 0;
-        const topTaxId     = taxArr.length ? Number(taxArr[0].id || 0) : 0;
+        const topTaxClearanceId = taxClearanceArr.length ? Number(taxClearanceArr[0].id || 0) : 0;
+        const topTaxId = taxArr.length ? Number(taxArr[0].id || 0) : 0;
 
         if (topPendingId) lastPendingTopId = topPendingId;
+        if (topTaxClearanceId) lastTaxClearanceTopId = topTaxClearanceId;
         if (topTaxId) lastTaxTopId = topTaxId;
 
         lastPendingCount = pendingCountNow;
-        lastTaxCount     = taxCountNow;
+        lastTaxClearanceCount = taxClearanceCountNow;
+        lastTaxCount = taxCountNow;
 
-        // rebuild tables
         if (pendingDT) {
           pendingDT.clear();
           pendingDT.rows.add(pendingArr.map(buildPendingRow));
           pendingDT.draw(false);
         }
+
+        if (taxClearanceDT) {
+          taxClearanceDT.clear();
+          taxClearanceDT.rows.add(taxClearanceArr.map(buildTaxClearanceRow));
+          taxClearanceDT.draw(false);
+        }
+
         if (taxDT) {
           taxDT.clear();
           taxDT.rows.add(taxArr.map(buildTaxRow));
@@ -1554,15 +1704,17 @@ $(document).ready(function() {
   }
 
   if (isRequestsView) {
-    // set initial trackers based on current table (avoid beep on first load)
     setTimeout(function(){
       lastPendingCount = Number($('#pendingCount').text() || 0);
+      lastTaxClearanceCount = Number($('#taxClearanceCount').text() || 0);
       lastTaxCount = Number($('#taxPendingCount').text() || 0);
 
-      // prime IDs using current DOM rows if any
       const pFirst = $('#pendingTable tbody tr:first .id-badge').text().replace('#','');
+      const tcFirst = $('#taxClearanceTable tbody tr:first .id-badge').text().replace('#','');
       const tFirst = $('#taxPendingTable tbody tr:first .id-badge').text().replace('#','');
+
       lastPendingTopId = Number(pFirst || 0) || 0;
+      lastTaxClearanceTopId = Number(tcFirst || 0) || 0;
       lastTaxTopId = Number(tFirst || 0) || 0;
 
       refreshRequestsTables();
@@ -1572,6 +1724,46 @@ $(document).ready(function() {
   }
 
 });
+
+  $(document).on('click', '.btnDoneTaxClearance', function() {
+    const btn = $(this);
+    const id = Number(btn.data('id')) || 0;
+
+    if (!id) {
+      alert('Invalid client ID.');
+      return;
+    }
+
+    if (!confirm('Mark this Tax Clearance request as done?')) {
+      return;
+    }
+
+    btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i>');
+
+    $.ajax({
+      url: 'mark_tax_clearance_done.php',
+      method: 'POST',
+      dataType: 'json',
+      data: { id: id },
+      success: function(res) {
+        if (!res || !res.ok) {
+          alert((res && res.message) ? res.message : 'Failed to mark as done.');
+          btn.prop('disabled', false).html('<i class="fas fa-check"></i>');
+          return;
+        }
+
+        refreshRequestsTables();
+      },
+      error: function(xhr) {
+        let msg = 'Server error while marking as done.';
+        if (xhr.responseJSON && xhr.responseJSON.message) {
+          msg = xhr.responseJSON.message;
+        }
+        alert(msg);
+        btn.prop('disabled', false).html('<i class="fas fa-check"></i>');
+      }
+    });
+  });
 </script>
 
 <noscript>

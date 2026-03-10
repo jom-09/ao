@@ -474,10 +474,7 @@ try {
     </td>
   </tr>
 <?php
-  endwhile;
-} catch (Throwable $e) { /* keep empty */ }
-?>
-            endwhile;
+endwhile;
           } catch (Throwable $e) { /* keep empty */ }
           ?>
           </tbody>
@@ -1072,7 +1069,7 @@ try {
 
 <!-- Notification Sound -->
 <audio id="notifSound" preload="auto">
-  <source src="../assets/sounds/notif.mp3" type="audio/mpeg">
+  <source src="../assets/sounds/car.mp3" type="audio/mpeg">
 </audio>
 
 <script>

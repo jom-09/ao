@@ -228,7 +228,7 @@ if (isset($_GET['success'])) $success = htmlspecialchars($_GET['success']);
 <!-- TAX CLEARANCE MODAL -->
 <div class="modal fade" id="taxClearanceModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
-    <form method="POST" action="submit_tax_clearance.php">
+    <form method="POST" action="submit_tax_clearance.php" id="taxClearanceForm">
       <div class="modal-content">
         <div class="modal-header">
           <h5 class="modal-title">Tax Clearance Request</h5>
@@ -242,20 +242,29 @@ if (isset($_GET['success'])) $success = htmlspecialchars($_GET['success']);
 
           <div class="mb-3">
             <label class="form-label">First Name</label>
-            <input type="text" name="firstname" class="form-control" required>
+            <input type="text" name="firstname" id="tc_firstname" class="form-control" required>
           </div>
 
           <div class="mb-3">
             <label class="form-label">Middle Name</label>
-            <input type="text" name="middlename" class="form-control">
+            <input type="text" name="middlename" id="tc_middlename" class="form-control">
           </div>
 
           <div class="mb-3">
             <label class="form-label">Last Name</label>
-            <input type="text" name="lastname" class="form-control" required>
+            <input type="text" name="lastname" id="tc_lastname" class="form-control" required>
           </div>
 
-          <!-- if meron ka nang session values for address/contact, pwede mo rin ipasa -->
+          <div class="mb-3">
+            <label class="form-label">Complete Address</label>
+            <textarea name="address" id="tc_address" class="form-control" rows="3" required></textarea>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Contact Number</label>
+            <input type="text" name="cp_no" id="tc_cp_no" class="form-control" required>
+          </div>
+
           <input type="hidden" name="purpose" value="Tax Clearance">
         </div>
 
@@ -265,7 +274,7 @@ if (isset($_GET['success'])) $success = htmlspecialchars($_GET['success']);
       </div>
     </form>
   </div>
-</div>  
+</div>
 <!-- Framework JS -->
 <script src="../assets/js/bootstrap.bundle.min.js"></script>
 
@@ -274,9 +283,24 @@ if (isset($_GET['success'])) $success = htmlspecialchars($_GET['success']);
 
 <script>
 document.querySelectorAll('.purpose-checkbox').forEach(radio => {
-    radio.addEventListener('change', function(){
+    radio.addEventListener('change', function () {
 
-        if(this.value === "tax_clearance"){
+        if (this.value === "tax_clearance") {
+
+            // kunin values sa main form
+            const firstname  = document.getElementById('firstname').value || '';
+            const middlename = document.getElementById('middlename').value || '';
+            const lastname   = document.getElementById('lastname').value || '';
+            const address    = document.getElementById('address').value || '';
+            const cpno       = document.getElementById('cp_no').value || '';
+
+            // ilagay sa modal fields
+            document.getElementById('tc_firstname').value = firstname;
+            document.getElementById('tc_middlename').value = middlename;
+            document.getElementById('tc_lastname').value = lastname;
+            document.getElementById('tc_address').value = address;
+            document.getElementById('tc_cp_no').value = cpno;
+
             var modal = new bootstrap.Modal(document.getElementById('taxClearanceModal'));
             modal.show();
         }

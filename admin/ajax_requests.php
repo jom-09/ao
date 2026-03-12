@@ -25,6 +25,8 @@ try {
       r.is_done,
       r.done_at,
       r.created_at,
+      rld.arp_no,
+      rld.area,
 
       (
         SELECT GROUP_CONCAT(cert.certificate_name SEPARATOR ', ')
@@ -45,6 +47,7 @@ try {
 
     FROM requests r
     JOIN clients c ON r.client_id = c.id
+    LEFT JOIN request_land_details rld ON rld.request_id = r.id
     WHERE r.status IN ('PENDING','PAID')
     ORDER BY r.created_at DESC
     LIMIT 500
@@ -72,6 +75,8 @@ try {
       'fullname' => h($row['fullname'] ?? '-'),
       'address' => h($row['address'] ?? '-'),
       'purpose' => h($row['purpose'] ?? '-'),
+      'arp_no' => h(($row['arp_no'] ?? '') !== '' ? $row['arp_no'] : '-'),
+      'area' => h(($row['area'] ?? '') !== '' ? $row['area'] : '-'),
       'items' => h($items),
       'total_amount' => (float)($row['total_amount'] ?? 0),
       'control_number' => h($row['control_number'] ?? '-'),
@@ -86,12 +91,12 @@ try {
   echo json_encode([
     'ok' => true,
     'rows' => $rows
-  ]);
+  ], JSON_UNESCAPED_UNICODE);
 
 } catch (Throwable $e) {
 
   echo json_encode([
     'ok' => false,
     'error' => 'Server error: ' . $e->getMessage()
-  ]);
+  ], JSON_UNESCAPED_UNICODE);
 }

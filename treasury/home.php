@@ -315,6 +315,8 @@ if ($view === 'dashboard') {
               <th>Client</th>
               <th>Address</th>
               <th>Purpose</th>
+              <th>ARP No.</th>
+              <th>Area</th>
               <th>Certificates / Services</th>
               <th>Total</th>
               <th>Date</th>
@@ -331,6 +333,8 @@ if ($view === 'dashboard') {
               c.purpose,
               r.total_amount,
               r.created_at,
+              rld.arp_no,
+              rld.area,
               (
                 SELECT GROUP_CONCAT(cert.certificate_name SEPARATOR ', ')
                 FROM request_items ri
@@ -345,6 +349,7 @@ if ($view === 'dashboard') {
               ) AS service_list
             FROM requests r
             JOIN clients c ON r.client_id = c.id
+            LEFT JOIN request_land_details rld ON rld.request_id = r.id
             WHERE r.status='PENDING'
               AND c.purpose <> 'Tax Clearance'
             ORDER BY r.created_at DESC
@@ -364,6 +369,8 @@ if ($view === 'dashboard') {
               <td><span class="client-name"><?php echo h($row['fullname']); ?></span></td>
               <td><?php echo h($row['address'] ?? ''); ?></td>
               <td><?php echo h($row['purpose']); ?></td>
+              <td><?php echo h($row['arp_no'] ?? '-'); ?></td>
+              <td><?php echo h($row['area'] ?? '-'); ?></td>
               <td><span class="certs-list"><?php echo h($items); ?></span></td>
               <td><span class="amount">₱<?php echo number_format((float)$row['total_amount'],2); ?></span></td>
               <td><span class="date"><?php echo date('M d, Y', strtotime($row['created_at'])); ?></span></td>
@@ -397,12 +404,12 @@ if ($view === 'dashboard') {
               FROM clients c
               WHERE c.purpose='Tax Clearance'
               AND NOT EXISTS (
-              SELECT 1
-              FROM requests r
-              WHERE r.client_id = c.id
-              AND r.status = 'PAID'
+                SELECT 1
+                FROM requests r
+                WHERE r.client_id = c.id
+                AND r.status = 'PAID'
               )
-              ")->fetch_assoc()['c'];
+            ")->fetch_assoc()['c'];
           } catch (Throwable $e) { $taxClearanceCount = 0; }
         ?>
         <span class="badge pending-badge" id="taxClearanceCount"><?php echo (int)$taxClearanceCount; ?></span>
@@ -424,57 +431,57 @@ if ($view === 'dashboard') {
           </thead>
           <tbody>
           <?php
-try {
-  $sqlTC = "
-    SELECT
-      c.id,
-      c.firstname,
-      c.middlename,
-      c.lastname,
-      c.address,
-      c.cp_no,
-      c.purpose,
-      c.created_at
-    FROM clients c
-    WHERE c.purpose='Tax Clearance'
-      AND NOT EXISTS (
-        SELECT 1
-        FROM requests r
-        WHERE r.client_id = c.id
-          AND r.status = 'PAID'
-      )
-    ORDER BY c.created_at DESC
-  ";
-  $resultTC = $conn->query($sqlTC);
+          try {
+            $sqlTC = "
+              SELECT
+                c.id,
+                c.firstname,
+                c.middlename,
+                c.lastname,
+                c.address,
+                c.cp_no,
+                c.purpose,
+                c.created_at
+              FROM clients c
+              WHERE c.purpose='Tax Clearance'
+                AND NOT EXISTS (
+                  SELECT 1
+                  FROM requests r
+                  WHERE r.client_id = c.id
+                    AND r.status = 'PAID'
+                )
+              ORDER BY c.created_at DESC
+            ";
+            $resultTC = $conn->query($sqlTC);
 
-  while($rowTC = $resultTC->fetch_assoc()):
-    $fullname = trim(
-      ($rowTC['firstname'] ?? '') . ' ' .
-      ($rowTC['middlename'] ?? '') . ' ' .
-      ($rowTC['lastname'] ?? '')
-    );
-?>
-  <tr>
-    <td><span class="id-badge">#<?php echo (int)$rowTC['id']; ?></span></td>
-    <td><span class="client-name"><?php echo h($fullname); ?></span></td>
-    <td><?php echo h($rowTC['address'] ?? ''); ?></td>
-    <td><?php echo h($rowTC['cp_no'] ?? ''); ?></td>
-    <td><?php echo h($rowTC['purpose'] ?? ''); ?></td>
-    <td><span class="certs-list">Prepare latest receipt</span></td>
-    <td><span class="date"><?php echo date('M d, Y', strtotime($rowTC['created_at'])); ?></span></td>
-    <td class="actions">
-      <button
-        type="button"
-        class="action-btn accept btnDoneTaxClearance"
-        title="Mark as Done"
-        data-id="<?php echo (int)$rowTC['id']; ?>"
-      >
-        <i class="fas fa-check"></i>
-      </button>
-    </td>
-  </tr>
-<?php
-endwhile;
+            while($rowTC = $resultTC->fetch_assoc()):
+              $fullname = trim(
+                ($rowTC['firstname'] ?? '') . ' ' .
+                ($rowTC['middlename'] ?? '') . ' ' .
+                ($rowTC['lastname'] ?? '')
+              );
+          ?>
+            <tr>
+              <td><span class="id-badge">#<?php echo (int)$rowTC['id']; ?></span></td>
+              <td><span class="client-name"><?php echo h($fullname); ?></span></td>
+              <td><?php echo h($rowTC['address'] ?? ''); ?></td>
+              <td><?php echo h($rowTC['cp_no'] ?? ''); ?></td>
+              <td><?php echo h($rowTC['purpose'] ?? ''); ?></td>
+              <td><span class="certs-list">Prepare latest receipt</span></td>
+              <td><span class="date"><?php echo date('M d, Y', strtotime($rowTC['created_at'])); ?></span></td>
+              <td class="actions">
+                <button
+                  type="button"
+                  class="action-btn accept btnDoneTaxClearance"
+                  title="Mark as Done"
+                  data-id="<?php echo (int)$rowTC['id']; ?>"
+                >
+                  <i class="fas fa-check"></i>
+                </button>
+              </td>
+            </tr>
+          <?php
+            endwhile;
           } catch (Throwable $e) { /* keep empty */ }
           ?>
           </tbody>
@@ -722,6 +729,8 @@ endwhile;
               <th>Client</th>
               <th>Address</th>
               <th>Purpose</th>
+              <th>ARP No.</th>
+              <th>Area</th>
               <th>Certificates / Services</th>
               <th>Total</th>
               <th>Control No</th>
@@ -742,6 +751,8 @@ endwhile;
               r.status,
               r.paid_at,
               r.created_at,
+              rld.arp_no,
+              rld.area,
               (
                 SELECT GROUP_CONCAT(cert.certificate_name SEPARATOR ', ')
                 FROM request_items ri
@@ -756,6 +767,7 @@ endwhile;
               ) AS service_list
             FROM requests r
             JOIN clients c ON r.client_id = c.id
+            LEFT JOIN request_land_details rld ON rld.request_id = r.id
             WHERE r.status IN('PAID','DECLINED')
             ORDER BY r.created_at DESC
           ";
@@ -776,6 +788,8 @@ endwhile;
               <td><?php echo h($row['fullname']); ?></td>
               <td><?php echo h($row['address'] ?? ''); ?></td>
               <td><?php echo h($row['purpose']); ?></td>
+              <td><?php echo h($row['arp_no'] ?? '-'); ?></td>
+              <td><?php echo h($row['area'] ?? '-'); ?></td>
               <td><?php echo h($items2); ?></td>
               <td>
                 <span class="amount">
@@ -1069,7 +1083,7 @@ endwhile;
 
 <!-- Notification Sound -->
 <audio id="notifSound" preload="auto">
-  <source src="../assets/sounds/car.mp3" type="audio/mpeg">
+  <source src="../assets/sounds/notif.mp3" type="audio/mpeg">
 </audio>
 
 <script>
@@ -1555,6 +1569,8 @@ $(document).ready(function() {
       `<span class="client-name">${$('<div>').text(r.fullname || '').html()}</span>`,
       `${$('<div>').text(r.address || '').html()}`,
       `${$('<div>').text(r.purpose || '').html()}`,
+      `${$('<div>').text(r.arp_no || '-').html()}`,
+      `${$('<div>').text(r.area || '-').html()}`,
       `<span class="certs-list">${$('<div>').text(r.items || '-').html()}</span>`,
       `<span class="amount">${peso(r.total_amount || 0)}</span>`,
       `<span class="date">${$('<div>').text(r.date_text || '').html()}</span>`,
@@ -1565,7 +1581,7 @@ $(document).ready(function() {
     ];
   }
 
-    function buildTaxClearanceRow(r){
+  function buildTaxClearanceRow(r){
     const id = Number(r.id || 0);
 
     return [
@@ -1720,8 +1736,6 @@ $(document).ready(function() {
     setInterval(refreshRequestsTables, 7000);
   }
 
-});
-
   $(document).on('click', '.btnDoneTaxClearance', function() {
     const btn = $(this);
     const id = Number(btn.data('id')) || 0;
@@ -1761,6 +1775,8 @@ $(document).ready(function() {
       }
     });
   });
+
+});
 </script>
 
 <noscript>

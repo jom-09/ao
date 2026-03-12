@@ -15,6 +15,32 @@ if (($_SESSION['selected_service'] ?? '') !== 'cert') {
 function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
 
 /* ===============================
+   0) SAVE SELECTED LAND HOLDING
+   If coming from cert_search.php via POST,
+   store selected property info into session
+================================== */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['declared_owner'])) {
+  $_SESSION['selected_land_holding'] = [
+    'declared_owner'    => trim((string)($_POST['declared_owner'] ?? '')),
+    'owner_address'     => trim((string)($_POST['owner_address'] ?? '')),
+    'property_location' => trim((string)($_POST['property_location'] ?? '')),
+    'title'             => trim((string)($_POST['title'] ?? '')),
+    'lot'               => trim((string)($_POST['lot'] ?? '')),
+    'arp_no'            => trim((string)($_POST['arp_no'] ?? '')),
+    'area'              => trim((string)($_POST['area'] ?? '')),
+  ];
+}
+
+$selectedLand = $_SESSION['selected_land_holding'] ?? null;
+
+/* optional: force selection from cert_search first */
+if (!$selectedLand || !is_array($selectedLand)) {
+  // puwede mong i-redirect if gusto mo required talaga ang property selection
+  // header("Location: cert_search.php?error=Please+select+a+property+first.");
+  // exit();
+}
+
+/* ===============================
    1) ALIAS MAPPING (Appointment → Office)
    Left side MUST match certificates.certificate_name in office DB
 ================================== */
@@ -133,6 +159,10 @@ $_SESSION['qr_prefill_cert_ids'] = $prefillIds;
 $fromQr = isset($_GET['from']) && $_GET['from'] === 'qr';
 $error = '';
 if (isset($_GET['error'])) $error = h($_GET['error']);
+
+$clientFirst = $_SESSION['client_info']['firstname'] ?? $_SESSION['client_info']['first_name'] ?? '';
+$clientLast  = $_SESSION['client_info']['lastname'] ?? $_SESSION['client_info']['last_name'] ?? '';
+$clientCp    = $_SESSION['client_info']['cp_no'] ?? $_SESSION['client_info']['contact_no'] ?? '';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -144,12 +174,42 @@ if (isset($_GET['error'])) $error = h($_GET['error']);
   <link rel="stylesheet" href="../assets/bootstrap/css/bootstrap.min.css">
   <link href="../assets/bootstrap/css/style.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+
+  <style>
+    .info-box {
+      border: 1px solid #e9ecef;
+      border-radius: 14px;
+      background: #fff;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .info-label {
+      font-size: 12px;
+      color: #6c757d;
+      text-transform: uppercase;
+      font-weight: 700;
+      letter-spacing: .4px;
+      margin-bottom: 2px;
+    }
+    .info-value {
+      font-size: 14px;
+      font-weight: 600;
+      color: #212529;
+      word-break: break-word;
+    }
+    .section-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #0d6efd;
+      margin-bottom: 12px;
+    }
+  </style>
 </head>
 <body class="bg-light">
 
 <div class="container py-5">
   <div class="row justify-content-center">
-    <div class="col-lg-8">
+    <div class="col-lg-10">
 
       <div class="card shadow-sm border-0">
         <div class="card-body p-4">
@@ -158,7 +218,7 @@ if (isset($_GET['error'])) $error = h($_GET['error']);
               <h4 class="mb-0">Select Certificates</h4>
               <div class="text-muted small">Choose certificate(s) to request.</div>
             </div>
-            <a href="<?= $fromQr ? 'scan.php' : 'index.php' ?>" class="btn btn-outline-secondary btn-sm">
+            <a href="<?= $fromQr ? 'scan.php' : 'cert_search.php' ?>" class="btn btn-outline-secondary btn-sm">
               <i class="bi bi-arrow-left"></i> Back
             </a>
           </div>
@@ -174,10 +234,73 @@ if (isset($_GET['error'])) $error = h($_GET['error']);
             </div>
           <?php endif; ?>
 
-          <div class="mb-3 small">
-            <div><strong>Client:</strong> <?= h($_SESSION['client_info']['firstname'].' '.$_SESSION['client_info']['lastname']) ?></div>
-            <div><strong>Contact:</strong> <?= h($_SESSION['client_info']['cp_no']) ?></div>
+          <!-- CLIENT INFO -->
+          <div class="info-box">
+            <div class="section-title">
+              <i class="bi bi-person-vcard me-1"></i> Client Information
+            </div>
+
+            <div class="row g-3">
+              <div class="col-md-6">
+                <div class="info-label">Client Name</div>
+                <div class="info-value"><?= h(trim($clientFirst . ' ' . $clientLast)) ?></div>
+              </div>
+              <div class="col-md-6">
+                <div class="info-label">Contact Number</div>
+                <div class="info-value"><?= h($clientCp) ?></div>
+              </div>
+            </div>
           </div>
+
+          <!-- SELECTED PROPERTY INFO -->
+          <?php if ($selectedLand && is_array($selectedLand)): ?>
+            <div class="info-box">
+              <div class="section-title">
+                <i class="bi bi-house-door me-1"></i> Selected Property Information
+              </div>
+
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <div class="info-label">Declared Owner</div>
+                  <div class="info-value"><?= h($selectedLand['declared_owner'] ?? '') ?></div>
+                </div>
+
+                <div class="col-md-6">
+                  <div class="info-label">Owner Location</div>
+                  <div class="info-value"><?= h($selectedLand['owner_address'] ?? '') ?></div>
+                </div>
+
+                <div class="col-md-6">
+                  <div class="info-label">Property Location</div>
+                  <div class="info-value"><?= h($selectedLand['property_location'] ?? '') ?></div>
+                </div>
+
+                <div class="col-md-6">
+                  <div class="info-label">Title</div>
+                  <div class="info-value"><?= h($selectedLand['title'] ?? '') ?></div>
+                </div>
+
+                <div class="col-md-4">
+                  <div class="info-label">Lot</div>
+                  <div class="info-value"><?= h($selectedLand['lot'] ?? '') ?></div>
+                </div>
+
+                <div class="col-md-4">
+                  <div class="info-label">ARP No.</div>
+                  <div class="info-value"><?= h($selectedLand['arp_no'] ?? '') ?></div>
+                </div>
+
+                <div class="col-md-4">
+                  <div class="info-label">Area</div>
+                  <div class="info-value"><?= h($selectedLand['area'] ?? '') ?></div>
+                </div>
+              </div>
+            </div>
+          <?php else: ?>
+            <div class="alert alert-warning small">
+              No selected property found. Please go back and choose a property first.
+            </div>
+          <?php endif; ?>
 
           <form method="POST" action="submit_request.php" id="certForm">
             <div class="list-group mb-3">
@@ -201,7 +324,7 @@ if (isset($_GET['error'])) $error = h($_GET['error']);
             </div>
 
             <div class="d-flex justify-content-between">
-              <a href="<?= $fromQr ? 'scan.php' : 'index.php' ?>" class="btn btn-outline-secondary">Back</a>
+              <a href="<?= $fromQr ? 'scan.php' : 'cert_search.php' ?>" class="btn btn-outline-secondary">Back</a>
               <button type="submit" class="btn btn-primary">
                 Continue <i class="bi bi-arrow-right ms-1"></i>
               </button>

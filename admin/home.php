@@ -409,6 +409,8 @@ if ($req_barangay !== '' && $req_search !== '' && in_array($req_barangay, $allow
                         <th>Client</th>
                         <th>Address</th>
                         <th>Purpose</th>
+                        <th>ARP No.</th>
+                        <th>Area</th>
                         <th>Certificates/Services</th>
                         <th>Total</th>
                         <th>Control No</th>
@@ -420,40 +422,43 @@ if ($req_barangay !== '' && $req_search !== '' && in_array($req_barangay, $allow
                 <tbody id="adminRequestsTbody">
                 <?php
                 $sql = "
-                    SELECT
-                        r.id,
-                        CONCAT(c.firstname,' ',c.middlename,' ',c.lastname) AS fullname,
-                        c.address,
-                        c.purpose,
-                        r.total_amount,
-                        r.control_number,
-                        r.status,
-                        r.is_done,
-                        r.done_at,
-                        r.created_at,
+    SELECT
+        r.id,
+        CONCAT(c.firstname,' ',c.middlename,' ',c.lastname) AS fullname,
+        c.address,
+        c.purpose,
+        r.total_amount,
+        r.control_number,
+        r.status,
+        r.is_done,
+        r.done_at,
+        r.created_at,
+        rld.arp_no,
+        rld.area,
 
-                        (
-                            SELECT GROUP_CONCAT(cert.certificate_name SEPARATOR ', ')
-                            FROM request_items ri
-                            JOIN certificates cert ON cert.id = ri.certificate_id
-                            WHERE ri.request_id = r.id
-                        ) AS certificate_list,
+        (
+            SELECT GROUP_CONCAT(cert.certificate_name SEPARATOR ', ')
+            FROM request_items ri
+            JOIN certificates cert ON cert.id = ri.certificate_id
+            WHERE ri.request_id = r.id
+        ) AS certificate_list,
 
-                        (
-                            SELECT GROUP_CONCAT(s.service_name SEPARATOR ', ')
-                            FROM requested_services rs
-                            JOIN services s ON s.id = rs.service_id
-                            WHERE rs.request_id = r.id
-                        ) AS service_list,
+        (
+            SELECT GROUP_CONCAT(s.service_name SEPARATOR ', ')
+            FROM requested_services rs
+            JOIN services s ON s.id = rs.service_id
+            WHERE rs.request_id = r.id
+        ) AS service_list,
 
-                        (SELECT COUNT(*) FROM request_items ri WHERE ri.request_id = r.id) AS cert_count,
-                        (SELECT COUNT(*) FROM requested_services rs WHERE rs.request_id = r.id) AS service_count
+        (SELECT COUNT(*) FROM request_items ri WHERE ri.request_id = r.id) AS cert_count,
+        (SELECT COUNT(*) FROM requested_services rs WHERE rs.request_id = r.id) AS service_count
 
-                    FROM requests r
-                    JOIN clients c ON r.client_id = c.id
-                    WHERE r.status IN ('PENDING','PAID')
-                    ORDER BY r.created_at DESC
-                ";
+    FROM requests r
+    JOIN clients c ON r.client_id = c.id
+    LEFT JOIN request_land_details rld ON rld.request_id = r.id
+    WHERE r.status IN ('PENDING','PAID')
+    ORDER BY r.created_at DESC
+";
                 $result = $conn->query($sql);
 
                 while($row = $result->fetch_assoc()):
@@ -471,37 +476,39 @@ if ($req_barangay !== '' && $req_search !== '' && in_array($req_barangay, $allow
                     $doneAt = $row['done_at'] ?? null;
                 ?>
                 <tr>
-                    <td>#<?= (int)$row['id'] ?></td>
-                    <td><?= htmlspecialchars($row['fullname'] ?? '-') ?></td>
-                    <td><?= htmlspecialchars($row['address'] ?? '-') ?></td>
-                    <td><?= htmlspecialchars($row['purpose'] ?? '-') ?></td>
-                    <td><?= htmlspecialchars($items) ?></td>
-                    <td><strong>₱<?= number_format((float)$row['total_amount'], 2) ?></strong></td>
-                    <td><?= htmlspecialchars($row['control_number'] ?? '-') ?></td>
-                    <td>
-                        <span class="status-badge <?= strtolower((string)$row['status']) ?>">
-                            <?= htmlspecialchars((string)$row['status']) ?>
-                        </span>
-                    </td>
-                    <td><?= !empty($row['created_at']) ? date('M d, Y', strtotime($row['created_at'])) : '-' ?></td>
+    <td>#<?= (int)$row['id'] ?></td>
+    <td><?= htmlspecialchars($row['fullname'] ?? '-') ?></td>
+    <td><?= htmlspecialchars($row['address'] ?? '-') ?></td>
+    <td><?= htmlspecialchars($row['purpose'] ?? '-') ?></td>
+    <td><?= htmlspecialchars($row['arp_no'] ?? '-') ?></td>
+    <td><?= htmlspecialchars($row['area'] ?? '-') ?></td>
+    <td><?= htmlspecialchars($items) ?></td>
+    <td><strong>₱<?= number_format((float)$row['total_amount'], 2) ?></strong></td>
+    <td><?= htmlspecialchars($row['control_number'] ?? '-') ?></td>
+    <td>
+        <span class="status-badge <?= strtolower((string)$row['status']) ?>">
+            <?= htmlspecialchars((string)$row['status']) ?>
+        </span>
+    </td>
+    <td><?= !empty($row['created_at']) ? date('M d, Y', strtotime($row['created_at'])) : '-' ?></td>
 
-                    <!-- DONE COLUMN -->
-                    <td>
-                        <?php if($isDone): ?>
-                            <span class="status-badge paid"
-                                  title="<?= !empty($doneAt) ? date('M d, Y h:i A', strtotime($doneAt)) : '' ?>">
-                                <i class="fas fa-check me-1"></i> Done
-                            </span>
-                        <?php else: ?>
-                            <form method="POST" class="d-inline">
-                                <input type="hidden" name="mark_done_id" value="<?= (int)$row['id'] ?>">
-                                <button type="submit" class="modern-btn modern-btn-success modern-btn-sm">
-                                    <i class="fas fa-check me-1"></i> Mark as done
-                                </button>
-                            </form>
-                        <?php endif; ?>
-                    </td>
-                </tr>
+    <!-- DONE COLUMN -->
+    <td>
+        <?php if($isDone): ?>
+            <span class="status-badge paid"
+                  title="<?= !empty($doneAt) ? date('M d, Y h:i A', strtotime($doneAt)) : '' ?>">
+                <i class="fas fa-check me-1"></i> Done
+            </span>
+        <?php else: ?>
+            <form method="POST" class="d-inline">
+                <input type="hidden" name="mark_done_id" value="<?= (int)$row['id'] ?>">
+                <button type="submit" class="modern-btn modern-btn-success modern-btn-sm">
+                    <i class="fas fa-check me-1"></i> Mark as done
+                </button>
+            </form>
+        <?php endif; ?>
+    </td>
+</tr>   
                 <?php endwhile; ?>
                 </tbody>
             </table>
@@ -2175,56 +2182,57 @@ setInterval(refreshDashboard,10000);
 
 function refreshRequests(){
 
-    $.getJSON('ajax_requests.php',function(data){
+    $.getJSON('ajax_requests.php', function(data){
 
         if(!data.ok) return;
 
-        let html='';
+        let html = '';
 
-        data.rows.forEach(r=>{
+        data.rows.forEach(r => {
 
-            html+=`
+            html += `
             <tr>
 
-            <td>#${r.id}</td>
+                <td>#${r.id}</td>
 
-            <td>${r.fullname}</td>
+                <td>${r.fullname || '-'}</td>
 
-            <td>${r.address}</td>
+                <td>${r.address || '-'}</td>
 
-            <td>${r.purpose}</td>
+                <td>${r.purpose || '-'}</td>
 
-            <td>${r.items}</td>
+                <td>${r.arp_no || '-'}</td>
 
-            <td>₱${Number(r.total_amount).toLocaleString()}</td>
+                <td>${r.area || '-'}</td>
 
-            <td>${r.control_number}</td>
+                <td>${r.items || '-'}</td>
 
-            <td>
-            <span class="status-badge ${r.status.toLowerCase()}">
-            ${r.status}
-            </span>
-            </td>
+                <td>₱${Number(r.total_amount || 0).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
 
-            <td>${r.created_at_text}</td>
+                <td>${r.control_number || '-'}</td>
 
-            <td>
+                <td>
+                    <span class="status-badge ${(r.status || '').toLowerCase()}">
+                        ${r.status || '-'}
+                    </span>
+                </td>
 
-            ${r.is_done
-                ? '<span class="status-badge paid">Done</span>'
-                : `<form method="POST">
-                <input type="hidden" name="mark_done_id" value="${r.id}">
-                <button class="btn btn-success btn-sm">
-                Mark as done
-                </button>
-                </form>`
-            }
+                <td>${r.created_at_text || '-'}</td>
 
-            </td>
+                <td>
+                    ${r.is_done
+                        ? '<span class="status-badge paid">Done</span>'
+                        : `<form method="POST">
+                                <input type="hidden" name="mark_done_id" value="${r.id}">
+                                <button class="btn btn-success btn-sm">
+                                    Mark as done
+                                </button>
+                           </form>`
+                    }
+                </td>
 
             </tr>
             `;
-
         });
 
         $('#adminRequestsTbody').html(html);
@@ -2232,7 +2240,6 @@ function refreshRequests(){
     });
 
 }
-
 // refresh every 7 seconds
 setInterval(refreshRequests,7000);
 

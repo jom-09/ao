@@ -17,7 +17,9 @@ $service    = trim((string)($_POST['service'] ?? ''));
 // required fields
 $missing = [];
 foreach (['firstname','lastname','address','cp_no','service'] as $k) {
-  if (!isset($_POST[$k]) || trim((string)$_POST[$k]) === '') $missing[] = $k;
+  if (!isset($_POST[$k]) || trim((string)$_POST[$k]) === '') {
+    $missing[] = $k;
+  }
 }
 if ($missing) {
   header("Location: index.php?error=Missing:+".urlencode(implode(', ', $missing)));
@@ -39,16 +41,16 @@ $fn = normalize_name($firstname);
 $mn = normalize_name($middlename);
 $ln = normalize_name($lastname);
 
-// ✅ Save BOTH naming styles (new + old) para walang mabreak
+// save BOTH naming styles (new + old) para walang mabreak
 $_SESSION['client_info'] = [
-  // NEW (match tax_requests columns)
+  // NEW
   'first_name'  => $fn,
   'middle_name' => $mn,
   'last_name'   => $ln,
   'address'     => $address,
   'contact_no'  => $cp_no,
 
-  // OLD (compatibility)
+  // OLD
   'firstname'   => $fn,
   'middlename'  => $mn,
   'lastname'    => $ln,
@@ -57,14 +59,25 @@ $_SESSION['client_info'] = [
 
 $_SESSION['selected_service'] = $service;
 
+/*
+|--------------------------------------------------------------------------
+| ROUTING
+|--------------------------------------------------------------------------
+| tax  -> pay_tax.php
+| cert -> cert_search.php   <-- bagong flow, global search sa land_holdings_master
+| svc  -> select_service.php
+*/
 if ($service === 'tax') {
   header("Location: pay_tax.php");
   exit();
 }
+
 if ($service === 'cert') {
-  header("Location: select_cert.php");
+  // global search page for certification issuance
+  header("Location: cert_search.php");
   exit();
 }
+
 if ($service === 'svc') {
   header("Location: select_service.php");
   exit();

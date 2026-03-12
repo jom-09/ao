@@ -20,6 +20,10 @@ function logError($message, $context = []) {
     @file_put_contents($logFile, $entry, FILE_APPEND | LOCK_EX);
 }
 
+function h($s) {
+    return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
+}
+
 // === Validation: Session & Input ===
 if (!isset($_SESSION['client_info']) || !is_array($_SESSION['client_info'])) {
     header("Location: index.php");
@@ -32,14 +36,15 @@ if (!isset($_POST['certificates']) || !is_array($_POST['certificates']) || empty
 }
 
 $client = $_SESSION['client_info'];
+$selectedLand = $_SESSION['selected_land_holding'] ?? [];
 
 // Sanitize and validate client data
-$firstname  = trim($client['firstname'] ?? '');
-$middlename = trim($client['middlename'] ?? '');
-$lastname   = trim($client['lastname'] ?? '');
+$firstname  = trim($client['firstname'] ?? $client['first_name'] ?? '');
+$middlename = trim($client['middlename'] ?? $client['middle_name'] ?? '');
+$lastname   = trim($client['lastname'] ?? $client['last_name'] ?? '');
 $address    = trim($client['address'] ?? '');
-$cp_no      = trim($client['cp_no'] ?? '');
-$purpose = $client['purpose'] ?? '';
+$cp_no      = trim($client['cp_no'] ?? $client['contact_no'] ?? '');
+$purpose    = $client['purpose'] ?? '';
 
 // Purpose: store as STRING because clients.purpose is VARCHAR(100)
 if (is_array($purpose)) {
@@ -48,7 +53,7 @@ if (is_array($purpose)) {
     $purposeStr = trim((string)$purpose);
 }
 
-// ✅ fallback for cert flow
+// fallback for cert flow
 if ($purposeStr === '') {
     $purposeStr = 'Certification Issuance';
 }
@@ -73,6 +78,17 @@ if (empty($certIds)) {
     exit();
 }
 
+// Normalize selected property info
+$landInfo = [
+    'declared_owner'    => trim((string)($selectedLand['declared_owner'] ?? '')),
+    'owner_address'     => trim((string)($selectedLand['owner_address'] ?? '')),
+    'property_location' => trim((string)($selectedLand['property_location'] ?? '')),
+    'title'             => trim((string)($selectedLand['title'] ?? '')),
+    'lot'               => trim((string)($selectedLand['lot'] ?? '')),
+    'arp_no'            => trim((string)($selectedLand['arp_no'] ?? '')),
+    'area'              => trim((string)($selectedLand['area'] ?? '')),
+];
+
 // === Database Operations with Transaction ===
 $txStarted = false;
 
@@ -81,8 +97,7 @@ try {
     $txStarted = true;
 
     /* ===============================
-       1) INSERT CLIENT (MATCHES clients TABLE)
-       clients: firstname, middlename, lastname, address, cp_no, purpose, created_at
+       1) INSERT CLIENT
     ================================== */
     $stmt = $conn->prepare("
         INSERT INTO clients
@@ -102,7 +117,7 @@ try {
     if ($clientId <= 0) throw new Exception("Client ID not generated.");
 
     /* ===============================
-       2) FETCH CERT PRICES (NO get_result dependency)
+       2) FETCH CERT PRICES
     ================================== */
     $total = 0;
     $validCerts = [];
@@ -133,8 +148,7 @@ try {
     if (empty($validCerts)) throw new Exception("No valid active certificates found.");
 
     /* ===============================
-       3) INSERT REQUEST (status enum is UPPERCASE)
-       requests: client_id, total_amount, status, created_at
+       3) INSERT REQUEST
     ================================== */
     $stmt = $conn->prepare("
         INSERT INTO requests
@@ -154,8 +168,7 @@ try {
     if ($requestId <= 0) throw new Exception("Request ID not generated.");
 
     /* ===============================
-       4) INSERT REQUEST ITEMS (MATCHES request_items TABLE)
-       request_items: request_id, certificate_id, price_at_time
+       4) INSERT REQUEST ITEMS
     ================================== */
     $stmt = $conn->prepare("
         INSERT INTO request_items
@@ -171,20 +184,76 @@ try {
     }
     $stmt->close();
 
-    // ✅ Commit transaction
+        /* ===============================
+       5) INSERT LAND HOLDING DETAILS
+    ================================== */
+    $hasLandInfo =
+        $landInfo['declared_owner'] !== '' ||
+        $landInfo['owner_address'] !== '' ||
+        $landInfo['property_location'] !== '' ||
+        $landInfo['title'] !== '' ||
+        $landInfo['lot'] !== '' ||
+        $landInfo['arp_no'] !== '' ||
+        $landInfo['area'] !== '';
+
+    if ($hasLandInfo) {
+        $stmt = $conn->prepare("
+            INSERT INTO request_land_details
+            (request_id, declared_owner, owner_address, property_location, title, lot, arp_no, area)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ");
+        if (!$stmt) throw new Exception("Prepare failed for request_land_details: " . $conn->error);
+
+        $stmt->bind_param(
+            "isssssss",
+            $requestId,
+            $landInfo['declared_owner'],
+            $landInfo['owner_address'],
+            $landInfo['property_location'],
+            $landInfo['title'],
+            $landInfo['lot'],
+            $landInfo['arp_no'],
+            $landInfo['area']
+        );
+        $stmt->execute();
+
+        if ($stmt->errno) throw new Exception("Land detail insert failed: " . $stmt->error);
+        $stmt->close();
+    }
+
+    /*
+    ==================================
+    OPTIONAL FUTURE STEP:
+    If gusto mo ma-save sa DB ang selected land holding,
+    puwede tayo gumawa ng new table like request_land_details
+    then dito natin i-insert.
+    ==================================
+    */
+
+    // commit
     $conn->commit();
     $txStarted = false;
 
-    // === Prepare Success Data ===
+    // Prepare Success Data
     $successData = [
         'request_id'   => $requestId,
-        'client_name'  => htmlspecialchars("$firstname $lastname"),
-        'cp_no'        => htmlspecialchars($cp_no),
+        'client_name'  => h("$firstname $lastname"),
+        'cp_no'        => h($cp_no),
         'purpose'      => $purposeStr,
         'total_amount' => number_format($total, 2),
         'certificates' => array_column($validCerts, 'name'),
-        'reference'    => 'REQ-' . strtoupper(substr(md5($requestId . time()), 0, 8))
+        'reference'    => 'REQ-' . strtoupper(substr(md5($requestId . time()), 0, 8)),
+        'land_info'    => $landInfo,
     ];
+
+    // log success with selected property context
+    logError("Certificate request submitted successfully", [
+        'request_id' => $requestId,
+        'client_id' => $clientId,
+        'client_name' => $firstname . ' ' . $lastname,
+        'selected_land_holding' => $landInfo,
+        'certificates' => array_column($validCerts, 'name')
+    ]);
 
     // Clear sensitive session data
     unset($_SESSION['client_info']);
@@ -198,6 +267,7 @@ try {
     logError("Submission failed", [
         'error'  => $e->getMessage(),
         'client' => $firstname . ' ' . $lastname,
+        'selected_land_holding' => $landInfo,
         'trace'  => $e->getTraceAsString()
     ]);
 
@@ -207,7 +277,12 @@ try {
     if ($conn) $conn->close();
 }
 
-unset($_SESSION['qr_items'], $_SESSION['qr_cert_labels'], $_SESSION['qr_prefill_cert_ids']);
+unset(
+    $_SESSION['qr_items'],
+    $_SESSION['qr_cert_labels'],
+    $_SESSION['qr_prefill_cert_ids'],
+    $_SESSION['selected_land_holding']
+);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -220,6 +295,33 @@ unset($_SESSION['qr_items'], $_SESSION['qr_cert_labels'], $_SESSION['qr_prefill_
     <link rel="stylesheet" href="../assets/bootstrap/css/datatables.min.css">
     <link href="../assets/bootstrap/css/style.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+
+    <style>
+        .summary-block {
+            border: 1px solid #e9ecef;
+            border-radius: 12px;
+            padding: 14px;
+            margin-bottom: 18px;
+            background: #fff;
+        }
+        .summary-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: #0d6efd;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 6px 0;
+            border-bottom: 1px dashed #e9ecef;
+        }
+        .summary-row:last-child {
+            border-bottom: 0;
+        }
+    </style>
 </head>
 <body>
 
@@ -252,7 +354,7 @@ unset($_SESSION['qr_items'], $_SESSION['qr_cert_labels'], $_SESSION['qr_prefill_
                 </div>
                 <div class="summary-row">
                     <span class="text-muted">Purpose</span>
-                    <span class="fw-semibold"><?php echo htmlspecialchars($successData['purpose']); ?></span>
+                    <span class="fw-semibold"><?php echo h($successData['purpose']); ?></span>
                 </div>
                 <div class="summary-row">
                     <span class="text-muted">Certificates</span>
@@ -264,6 +366,55 @@ unset($_SESSION['qr_items'], $_SESSION['qr_cert_labels'], $_SESSION['qr_prefill_
                 </div>
             </div>
 
+            <?php
+            $li = $successData['land_info'] ?? [];
+            $hasLandInfo =
+                !empty($li['declared_owner']) ||
+                !empty($li['owner_address']) ||
+                !empty($li['property_location']) ||
+                !empty($li['title']) ||
+                !empty($li['lot']) ||
+                !empty($li['arp_no']) ||
+                !empty($li['area']);
+            ?>
+
+            <?php if ($hasLandInfo): ?>
+                <div class="summary-block text-start">
+                    <div class="summary-title">
+                        <i class="bi bi-house-door me-1"></i> Selected Property Information
+                    </div>
+
+                    <div class="summary-row">
+                        <span class="text-muted">Declared Owner</span>
+                        <span class="fw-semibold"><?php echo h($li['declared_owner'] ?? ''); ?></span>
+                    </div>
+                    <div class="summary-row">
+                        <span class="text-muted">Owner Location</span>
+                        <span class="fw-semibold"><?php echo h($li['owner_address'] ?? ''); ?></span>
+                    </div>
+                    <div class="summary-row">
+                        <span class="text-muted">Property Location</span>
+                        <span class="fw-semibold"><?php echo h($li['property_location'] ?? ''); ?></span>
+                    </div>
+                    <div class="summary-row">
+                        <span class="text-muted">Title</span>
+                        <span class="fw-semibold"><?php echo h($li['title'] ?? ''); ?></span>
+                    </div>
+                    <div class="summary-row">
+                        <span class="text-muted">Lot</span>
+                        <span class="fw-semibold"><?php echo h($li['lot'] ?? ''); ?></span>
+                    </div>
+                    <div class="summary-row">
+                        <span class="text-muted">ARP No.</span>
+                        <span class="fw-semibold"><?php echo h($li['arp_no'] ?? ''); ?></span>
+                    </div>
+                    <div class="summary-row">
+                        <span class="text-muted">Area</span>
+                        <span class="fw-semibold"><?php echo h($li['area'] ?? ''); ?></span>
+                    </div>
+                </div>
+            <?php endif; ?>
+
             <details class="mb-4 text-start">
                 <summary class="summary-toggle">
                     <i class="bi bi-list-ul me-1"></i>View selected certificates
@@ -272,7 +423,7 @@ unset($_SESSION['qr_items'], $_SESSION['qr_cert_labels'], $_SESSION['qr_prefill_
                     <?php foreach ($successData['certificates'] as $cert): ?>
                         <div class="cert-item-row">
                             <i class="bi bi-check-circle-fill text-success me-2 small"></i>
-                            <small><?php echo htmlspecialchars($cert); ?></small>
+                            <small><?php echo h($cert); ?></small>
                         </div>
                     <?php endforeach; ?>
                 </div>

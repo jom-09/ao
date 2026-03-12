@@ -20,6 +20,8 @@ try {
       c.purpose,
       r.total_amount,
       r.created_at,
+      rld.arp_no,
+      rld.area,
       (
         SELECT GROUP_CONCAT(cert.certificate_name SEPARATOR ', ')
         FROM request_items ri
@@ -34,6 +36,7 @@ try {
       ) AS service_list
     FROM requests r
     JOIN clients c ON r.client_id = c.id
+    LEFT JOIN request_land_details rld ON rld.request_id = r.id
     WHERE r.status='PENDING'
       AND TRIM(c.purpose) <> 'Tax Clearance'
     ORDER BY r.created_at DESC
@@ -55,6 +58,8 @@ try {
       'fullname' => (string)($row['fullname'] ?? ''),
       'address' => (string)($row['address'] ?? ''),
       'purpose' => (string)($row['purpose'] ?? ''),
+      'arp_no' => (string)(($row['arp_no'] ?? '') !== '' ? $row['arp_no'] : '-'),
+      'area' => (string)(($row['area'] ?? '') !== '' ? $row['area'] : '-'),
       'items' => (string)$items,
       'total_amount' => (float)($row['total_amount'] ?? 0),
       'created_at' => (string)($row['created_at'] ?? ''),

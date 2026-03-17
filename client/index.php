@@ -171,12 +171,12 @@ if (isset($_GET['success'])) $success = htmlspecialchars($_GET['success']);
     </div>
 </label>
 
-<!-- Services -->
+<!-- Others -->
 <label class="purpose-option" data-value="svc">
     <input type="radio" name="service" value="svc" class="purpose-checkbox" required>
     <div class="option-card">
         <div class="option-check"><i class="bi bi-check-lg"></i></div>
-        <span>Services</span>
+        <span>Others (Certificates / No Improvement)</span>
     </div>
 </label>
 

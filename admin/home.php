@@ -118,7 +118,7 @@ if($tab == 'dashboard') {
             <a href="home.php?tab=find" class="nav-link <?= $tab=='find'?'active':'' ?>"><i class="fas fa-search"></i><span>Find Record</span></a>
             <a href="home.php?tab=faas" class="nav-link <?= $tab=='faas'?'active':'' ?>"><i class="fas fa-folder-tree"></i><span>FAAS Management</span></a>
             <a href="home.php?tab=certificates" class="nav-link <?= $tab=='certificates'?'active':'' ?>"><i class="fas fa-certificate"></i><span>Certificates</span></a>
-            <a href="home.php?tab=services" class="nav-link <?= $tab=='services'?'active':'' ?>"><i class="fas fa-concierge-bell"></i><span>Services</span></a>
+            <a href="home.php?tab=services" class="nav-link <?= $tab=='services'?'active':'' ?>"><i class="fas fa-concierge-bell"></i><span>Others</span></a>
             <a href="home.php?tab=notice_assessment" class="nav-link <?= $tab=='notice_assessment'?'active':'' ?>"><i class="fas fa-bullhorn"></i><span>Notice of Assessment</span></a>
         </nav>
 
@@ -144,7 +144,7 @@ if($tab == 'dashboard') {
                     'find' => 'Find Record',
                     'faas' => ' Manage Field Appraisal and Assessment Sheet',
                     'certificates' => 'Certificates',
-                    'services' => 'Services',
+                    'services' => 'Others',
                     'notice_assessment' => 'Notice of Assessment',
                 ];
                 ?>

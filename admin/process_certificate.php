@@ -32,7 +32,6 @@ $certificates = [
    SAFE DOCX DOWNLOAD FUNCTION
 ========================================= */
 function downloadDocxTemplate($template, $filename) {
-    // clear any existing output buffer
     while (ob_get_level()) {
         ob_end_clean();
     }
@@ -40,7 +39,6 @@ function downloadDocxTemplate($template, $filename) {
     $tmpBase = tempnam(sys_get_temp_dir(), 'docx_');
     $docxFile = $tmpBase . '.docx';
 
-    // remove original temp file then use .docx
     if (file_exists($tmpBase)) {
         @unlink($tmpBase);
     }
@@ -68,20 +66,33 @@ function downloadDocxTemplate($template, $filename) {
 
 if (isset($_POST['generate'])) {
 
-    $cert_type      = $_POST['cert_type'] ?? '';
-    $barangay       = $_POST['barangay'] ?? '';
-    $arp_no         = trim($_POST['arp_no'] ?? '');
-    $owner_name     = trim($_POST['owner_name'] ?? '');
-    $owner_addressF = trim($_POST['owner_address_filter'] ?? '');
+    $cert_type       = $_POST['cert_type'] ?? '';
+    $barangay        = $_POST['barangay'] ?? '';
+    $arp_no          = trim($_POST['arp_no'] ?? '');
+    $owner_name      = trim($_POST['owner_name'] ?? '');
+    $owner_addressF  = trim($_POST['owner_address_filter'] ?? '');
+    $requester_name  = trim($_POST['requester_name'] ?? '');
 
     // validations
-    if (!isset($certificates[$cert_type])) $errors[] = "Invalid certificate type.";
+    if (!isset($certificates[$cert_type])) {
+        $errors[] = "Invalid certificate type.";
+    }
 
     if ($cert_type === 'total_land') {
-        if ($owner_name === '') $errors[] = "Owner name is required for Total Land Holding.";
+        if ($owner_name === '') {
+            $errors[] = "Owner name is required for Total Land Holding.";
+        }
+    } elseif ($cert_type === 'no_declared') {
+        if ($requester_name === '') {
+            $errors[] = "Requestor name is required for Certificate of No Declared Property.";
+        }
     } else {
-        if (!in_array($barangay, $allowed_tables, true)) $errors[] = "Invalid barangay.";
-        if ($arp_no === '') $errors[] = "ARP No is required.";
+        if (!in_array($barangay, $allowed_tables, true)) {
+            $errors[] = "Invalid barangay.";
+        }
+        if ($arp_no === '') {
+            $errors[] = "ARP No is required.";
+        }
     }
 
     if (empty($errors)) {
@@ -160,6 +171,15 @@ if (isset($_POST['generate'])) {
                     'holdings'       => $holdings
                 ];
             }
+
+        } elseif ($cert_type === 'no_declared') {
+
+            // No barangay / no ARP needed
+            $data = [
+                'requester_name' => $requester_name,
+                'declared_owner' => $requester_name, // fallback for existing template placeholders
+                'owner_address'  => ''
+            ];
 
         } else {
 
@@ -254,6 +274,8 @@ if (isset($_POST['generate'])) {
 
                     $template = new TemplateProcessor($template_path);
 
+                    // Support both old and new placeholder names
+                    $template->setValue('requester_name', $data['requester_name'] ?? '');
                     $template->setValue('declared_owner', $data['declared_owner'] ?? '');
                     $template->setValue('owner_address', $data['owner_address'] ?? '');
 
@@ -261,7 +283,10 @@ if (isset($_POST['generate'])) {
                     $template->setValue('month', date('F'));
                     $template->setValue('year', date('Y'));
 
-                    $filename = "No_Declared_" . (($data['declared_owner'] ?? 'record')) . ".docx";
+                    $safeOwner = preg_replace('/[^A-Za-z0-9_\- ]/', '', ($data['requester_name'] ?? 'record'));
+                    $safeOwner = str_replace(' ', '_', trim($safeOwner));
+
+                    $filename = "No_Declared_" . ($safeOwner ?: 'record') . ".docx";
                     downloadDocxTemplate($template, $filename);
                 }
 
@@ -387,11 +412,14 @@ if (isset($_POST['generate'])) {
                         <div class="form-card">
                             <div class="card-body">
 
-                                <form method="POST" class="row g-3">
+                                <form method="POST" id="certificateForm" class="row g-3">
+
+                                    <input type="hidden" name="requester_name" id="requester_name"
+                                           value="<?= htmlspecialchars($_POST['requester_name'] ?? '') ?>">
 
                                     <div class="col-md-6">
                                         <label class="form-label">Kind of Certification</label>
-                                        <select name="cert_type" class="form-select" required>
+                                        <select name="cert_type" id="cert_type" class="form-select" required>
                                             <option value="">-- Select Certificate --</option>
                                             <?php foreach($certificates as $key => $label): ?>
                                                 <option value="<?= htmlspecialchars($key) ?>"
@@ -402,7 +430,7 @@ if (isset($_POST['generate'])) {
                                         </select>
                                     </div>
 
-                                    <div class="col-md-6">
+                                    <div class="col-md-6 cert-barangay-group">
                                         <label class="form-label">Barangay</label>
                                         <select name="barangay" class="form-select">
                                             <option value="">-- Select Barangay --</option>
@@ -414,34 +442,44 @@ if (isset($_POST['generate'])) {
                                             <?php endforeach; ?>
                                         </select>
                                         <div class="help mt-1">
-                                            Required for Tax Dec / No Improvement / No Declared / Actual Location.
-                                            For Total Land Holding, leave blank.
+                                            Required for Tax Dec / No Improvement / Actual Location.
+                                            For Total Land Holding and No Declared, leave blank.
                                         </div>
                                     </div>
 
-                                    <div class="col-md-6">
+                                    <div class="col-md-6 cert-arp-group">
                                         <label class="form-label">ARP No.</label>
                                         <input type="text" name="arp_no" class="form-control"
                                                value="<?= htmlspecialchars($_POST['arp_no'] ?? '') ?>"
                                                placeholder="Enter ARP No.">
                                     </div>
 
-                                    <div class="col-md-6">
+                                    <div class="col-md-6 cert-owner-group">
                                         <label class="form-label">Owner Name (Total Land)</label>
                                         <input type="text" name="owner_name" class="form-control"
                                                value="<?= htmlspecialchars($_POST['owner_name'] ?? '') ?>"
                                                placeholder="e.g. JUAN DELA CRUZ">
                                     </div>
 
-                                    <div class="col-md-6">
+                                    <div class="col-md-6 cert-address-group">
                                         <label class="form-label">Address Filter (optional)</label>
                                         <input type="text" name="owner_address_filter" class="form-control"
                                                value="<?= htmlspecialchars($_POST['owner_address_filter'] ?? '') ?>"
                                                placeholder="optional - helps avoid same names">
                                     </div>
 
+                                    <div class="col-12 no-declared-preview" style="display:none;">
+                                        <div class="alert alert-info mb-0">
+                                            <strong>Requestor Name:</strong>
+                                            <span id="requester_name_preview"><?= htmlspecialchars($_POST['requester_name'] ?? '') ?></span>
+                                            <button type="button" class="btn btn-sm btn-outline-primary ms-2" id="editRequesterBtn">
+                                                Edit
+                                            </button>
+                                        </div>
+                                    </div>
+
                                     <div class="col-12 d-flex flex-wrap gap-2">
-                                        <button type="submit" name="generate" class="btn btn-primary">
+                                        <button type="submit" name="generate" class="btn btn-primary" id="generateBtn">
                                             Generate &amp; Download
                                         </button>
                                         <a href="home.php?tab=requests" class="btn btn-outline-secondary">
@@ -462,9 +500,15 @@ if (isset($_POST['generate'])) {
                                 <b>Barangay-based certificates</b><br>
                                 • Select Barangay<br>
                                 • Enter ARP No.<br><br>
+
                                 <b>Total Land Holding</b><br>
                                 • Enter Owner Name<br>
-                                • Optional Address Filter
+                                • Optional Address Filter<br><br>
+
+                                <b>No Declared Property</b><br>
+                                • No Barangay needed<br>
+                                • No ARP needed<br>
+                                • Requestor name will be entered in modal
                             </div>
                         </div>
                     </div>
@@ -481,6 +525,142 @@ if (isset($_POST['generate'])) {
     </div>
 </div>
 
+<!-- NO DECLARED MODAL -->
+<div class="modal fade" id="noDeclaredModal" tabindex="-1" aria-labelledby="noDeclaredModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Certificate of No Declared Property</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <label for="requester_name_modal" class="form-label">Name of Requestor</label>
+                <input type="text" id="requester_name_modal" class="form-control"
+                       placeholder="Enter name of requestor"
+                       value="<?= htmlspecialchars($_POST['requester_name'] ?? '') ?>">
+                <div class="form-text">
+                    This name will be automatically placed in the downloaded document.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="saveRequesterBtn">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script src="../assets/js/bootstrap.bundle.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const certType = document.getElementById('cert_type');
+    const form = document.getElementById('certificateForm');
+    const requesterInput = document.getElementById('requester_name');
+    const requesterModalInput = document.getElementById('requester_name_modal');
+    const requesterPreview = document.getElementById('requester_name_preview');
+    const generateBtn = document.getElementById('generateBtn');
+    const editRequesterBtn = document.getElementById('editRequesterBtn');
+
+    const barangayGroup = document.querySelector('.cert-barangay-group');
+    const arpGroup = document.querySelector('.cert-arp-group');
+    const ownerGroup = document.querySelector('.cert-owner-group');
+    const addressGroup = document.querySelector('.cert-address-group');
+    const noDeclaredPreview = document.querySelector('.no-declared-preview');
+
+    const noDeclaredModalEl = document.getElementById('noDeclaredModal');
+    const noDeclaredModal = new bootstrap.Modal(noDeclaredModalEl);
+
+    let lastCertType = certType.value || '';
+
+    function updatePreview() {
+        requesterPreview.textContent = requesterInput.value.trim() || '';
+    }
+
+    function toggleFields() {
+        const val = certType.value;
+
+        // default hide all special groups first
+        barangayGroup.style.display = '';
+        arpGroup.style.display = '';
+        ownerGroup.style.display = 'none';
+        addressGroup.style.display = 'none';
+        noDeclaredPreview.style.display = 'none';
+
+        if (val === 'total_land') {
+            barangayGroup.style.display = 'none';
+            arpGroup.style.display = 'none';
+            ownerGroup.style.display = '';
+            addressGroup.style.display = '';
+        } else if (val === 'no_declared') {
+            barangayGroup.style.display = 'none';
+            arpGroup.style.display = 'none';
+            ownerGroup.style.display = 'none';
+            addressGroup.style.display = 'none';
+            noDeclaredPreview.style.display = '';
+
+            updatePreview();
+        }
+    }
+
+    function openNoDeclaredModal() {
+        requesterModalInput.value = requesterInput.value || '';
+        noDeclaredModal.show();
+        setTimeout(() => {
+            requesterModalInput.focus();
+        }, 300);
+    }
+
+    certType.addEventListener('change', function () {
+        const current = this.value;
+        toggleFields();
+
+        if (current === 'no_declared' && lastCertType !== 'no_declared') {
+            openNoDeclaredModal();
+        }
+
+        lastCertType = current;
+    });
+
+    document.getElementById('saveRequesterBtn').addEventListener('click', function () {
+        const val = requesterModalInput.value.trim();
+
+        if (val === '') {
+            alert('Please enter the name of the requestor.');
+            requesterModalInput.focus();
+            return;
+        }
+
+        requesterInput.value = val;
+        updatePreview();
+        noDeclaredModal.hide();
+    });
+
+    if (editRequesterBtn) {
+        editRequesterBtn.addEventListener('click', function () {
+            openNoDeclaredModal();
+        });
+    }
+
+    form.addEventListener('submit', function (e) {
+        const selected = certType.value;
+
+        if (selected === 'no_declared') {
+            const reqName = requesterInput.value.trim();
+
+            if (reqName === '') {
+                e.preventDefault();
+                openNoDeclaredModal();
+                return false;
+            }
+        }
+    });
+
+    toggleFields();
+
+    <?php if (($_POST['cert_type'] ?? '') === 'no_declared' && empty($_POST['requester_name'] ?? '')): ?>
+    openNoDeclaredModal();
+    <?php endif; ?>
+});
+</script>
 </body>
 </html>

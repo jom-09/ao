@@ -10,7 +10,7 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
 
 // view switch
 $view = $_GET['view'] ?? 'dashboard';
-$view = in_array($view, ['dashboard','requests','tax_history','transactions','installments'], true) ? $view : 'dashboard';
+$view = in_array($view, ['dashboard','requests','tax_history','transactions','installments','import_archive'], true) ? $view : 'dashboard';
 
 /* ===============================
    DASHBOARD DATA (COUNTS ONLY)
@@ -124,6 +124,16 @@ if ($view === 'dashboard') {
       <a href="home.php?view=transactions"
          class="btn btn-sm <?= $view==='transactions' ? 'btn-light' : 'btn-outline-light' ?>">
         <i class="fas fa-history me-1"></i> Transaction History
+      </a>
+
+      <a href="search_archive.php"
+        class="btn btn-sm btn-outline-light">
+        <i class="fas fa-search me-1"></i> Archive Search
+      </a>
+
+      <a href="import_archive.php"
+        class="btn btn-sm btn-outline-light">
+      <i class="fas fa-file-import me-1"></i> Import Archive
       </a>
     </div>
 

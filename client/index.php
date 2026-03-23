@@ -176,7 +176,7 @@ if (isset($_GET['success'])) $success = htmlspecialchars($_GET['success']);
     <input type="radio" name="service" value="svc" class="purpose-checkbox" required>
     <div class="option-card">
         <div class="option-check"><i class="bi bi-check-lg"></i></div>
-        <span>Others (Certificates / No Improvement)</span>
+        <span>Others (Certificates / No Declared)</span>
     </div>
 </label>
 

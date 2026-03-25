@@ -83,3 +83,12 @@ CREATE TABLE IF NOT EXISTS taxpayer_raw_imports (
 );
 
 ALTER TABLE taxpayer_raw_imports DROP INDEX uq_batch_rowhash;
+
+CREATE TABLE messages (
+    id INT(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    sender_role ENUM('ADMIN','TREASURY') NOT NULL,
+    receiver_role ENUM('ADMIN','TREASURY') NOT NULL,
+    message TEXT NOT NULL,
+    is_read TINYINT(1) NOT NULL DEFAULT 0,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

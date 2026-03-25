@@ -137,6 +137,21 @@ if ($view === 'dashboard') {
       </a>
     </div>
 
+    <div class="d-flex align-items-center gap-2">
+    <button type="button"
+            class="btn btn-light position-relative"
+            id="openTreasuryMessageModalBtn"
+            data-bs-toggle="modal"
+            data-bs-target="#treasuryMessageModal"
+            title="Messages">
+        <i class="fas fa-envelope"></i>
+        <span id="treasuryUnreadBadge"
+              class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+              style="display:none;">0</span>
+    </button>
+    </div>
+
+
     <div class="user-badge">
       <i class="fas fa-user-circle"></i>
       <span><?php echo h($_SESSION['fullname'] ?? 'Treasury'); ?></span>
@@ -1794,6 +1809,222 @@ $(document).ready(function() {
     JavaScript is required for this application to work properly. Please enable JavaScript in your browser.
   </div>
 </noscript>
+
+<!-- TREASURY MESSAGE MODAL -->
+<div class="modal fade" id="treasuryMessageModal" tabindex="-1" aria-labelledby="treasuryMessageModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="treasuryMessageModalLabel">
+                    <i class="fas fa-envelope me-2"></i>Treasury Messaging
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <div class="modal-body">
+                <div class="row g-3">
+                    <!-- SEND MESSAGE -->
+                    <div class="col-md-5">
+                        <div class="border rounded p-3 h-100">
+                            <h6 class="mb-3">Send Message</h6>
+
+                            <form id="treasuryMessageForm" method="post" action="javascript:void(0);">
+                                <input type="hidden" name="receiver_role" value="ADMIN">
+
+                                <div class="mb-3">
+                                    <label class="form-label">To</label>
+                                    <input type="text" class="form-control" value="Admin" readonly>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">Message</label>
+                                    <textarea
+                                        name="message"
+                                        id="treasuryMessageText"
+                                        class="form-control"
+                                        rows="6"
+                                        placeholder="Type your message here..."
+                                        required></textarea>
+                                </div>
+
+                                <button type="submit" class="btn btn-primary w-100">
+                                    <i class="fas fa-paper-plane me-2"></i>Send
+                                </button>
+                            </form>
+
+                            <div id="treasuryMessageStatus" class="small mt-2"></div>
+                        </div>
+                    </div>
+
+                    <!-- INBOX -->
+                    <div class="col-md-7">
+                        <div class="border rounded p-3 h-100 d-flex flex-column">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="mb-0">Inbox / Conversation</h6>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="refreshTreasuryMessagesBtn">
+                                    <i class="fas fa-sync-alt me-1"></i>Refresh
+                                </button>
+                            </div>
+
+                            <div id="treasuryMessageInbox" style="max-height: 420px; overflow-y: auto;">
+                                <div class="text-muted">Loading messages...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script src="../assets/js/bootstrap.bundle.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const form = document.getElementById('treasuryMessageForm');
+    const inbox = document.getElementById('treasuryMessageInbox');
+    const statusBox = document.getElementById('treasuryMessageStatus');
+    const unreadBadge = document.getElementById('treasuryUnreadBadge');
+    const refreshBtn = document.getElementById('refreshTreasuryMessagesBtn');
+    const treasuryModal = document.getElementById('treasuryMessageModal');
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.innerText = text;
+        return div.innerHTML;
+    }
+
+    function fetchTreasuryMessages(markRead = false) {
+        fetch('message_fetch.php' + (markRead ? '?mark_read=1' : ''), {
+            method: 'GET'
+        })
+        .then(res => res.text())
+        .then(text => {
+            try {
+                return JSON.parse(text);
+            } catch (e) {
+                console.error('Invalid JSON from treasury message_fetch.php:', text);
+                throw e;
+            }
+        })
+        .then(data => {
+            if (!data.success) {
+                inbox.innerHTML = '<div class="text-danger">Failed to load messages.</div>';
+                return;
+            }
+
+            if (data.unread_count > 0) {
+                unreadBadge.style.display = 'inline-block';
+                unreadBadge.textContent = data.unread_count;
+            } else {
+                unreadBadge.style.display = 'none';
+                unreadBadge.textContent = '0';
+            }
+
+            if (!data.messages || data.messages.length === 0) {
+                inbox.innerHTML = '<div class="text-muted">No messages yet.</div>';
+                return;
+            }
+
+            let html = '';
+            data.messages.forEach(msg => {
+                const mine = msg.sender_role === 'TREASURY';
+
+                html += `
+                    <div class="mb-2 d-flex ${mine ? 'justify-content-end' : 'justify-content-start'}">
+                        <div class="p-2 rounded ${mine ? 'bg-primary text-white' : 'bg-light border'}" style="max-width: 80%;">
+                            <div class="small fw-bold mb-1">${mine ? 'You' : 'Admin'}</div>
+                            <div>${escapeHtml(msg.message)}</div>
+                            <div class="small mt-1 ${mine ? 'text-white-50' : 'text-muted'}">
+                                ${msg.created_at}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            inbox.innerHTML = html;
+            inbox.scrollTop = inbox.scrollHeight;
+        })
+        .catch(err => {
+            console.error(err);
+            inbox.innerHTML = '<div class="text-danger">Error loading messages.</div>';
+        });
+    }
+
+    if (form) {
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const formData = new FormData(form);
+            statusBox.innerHTML = '<span class="text-muted">Sending...</span>';
+
+            fetch('message_send.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.text())
+            .then(text => {
+                try {
+                    return JSON.parse(text);
+                } catch (e) {
+                    console.error('Invalid JSON from treasury message_send.php:', text);
+                    throw e;
+                }
+            })
+            .then(data => {
+                if (data.success) {
+                    statusBox.innerHTML = '<span class="text-success">Message sent.</span>';
+                    form.reset();
+                    fetchTreasuryMessages(false);
+                } else {
+                    statusBox.innerHTML = '<span class="text-danger">' + (data.message || 'Failed to send.') + '</span>';
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                statusBox.innerHTML = '<span class="text-danger">Error sending message. Check console.</span>';
+            });
+
+            return false;
+        });
+    }
+
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', function () {
+            fetchTreasuryMessages(false);
+        });
+    }
+
+    if (treasuryModal) {
+        treasuryModal.addEventListener('shown.bs.modal', function () {
+            fetchTreasuryMessages(true);
+
+            setTimeout(() => {
+                const activeEl = document.activeElement;
+                if (activeEl && activeEl.classList && activeEl.classList.contains('btn-close')) {
+                    activeEl.blur();
+                }
+            }, 50);
+        });
+
+        treasuryModal.addEventListener('hidden.bs.modal', function () {
+            const activeEl = document.activeElement;
+            if (activeEl) {
+                activeEl.blur();
+            }
+        });
+    }
+
+    fetchTreasuryMessages(false);
+
+    setInterval(() => {
+        fetchTreasuryMessages(false);
+    }, 3000);
+});
+</script>
 
 </body>
 </html>

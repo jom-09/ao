@@ -151,12 +151,27 @@ if($tab == 'dashboard') {
                 <span class="page-title"><?= htmlspecialchars($pageTitles[$tab] ?? ucfirst(str_replace('_',' ',$tab))) ?></span>
             </div>
 
-            <div class="user-profile-pill">
-                <div class="user-avatar">
-                    <i class="fas fa-user-circle"></i>
-                </div>
-                <span class="user-name"><?= htmlspecialchars($_SESSION['fullname'] ?? 'Admin') ?></span>
-            </div>
+            <div class="d-flex align-items-center gap-2">
+    <!-- MESSAGE BUTTON -->
+    <button type="button"
+            class="btn btn-light position-relative"
+            id="openMessageModalBtn"
+            data-bs-toggle="modal"
+            data-bs-target="#adminMessageModal"
+            title="Messages">
+        <i class="fas fa-envelope"></i>
+        <span id="adminUnreadBadge"
+              class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+              style="display:none;">0</span>
+    </button>
+
+    <div class="user-profile-pill">
+        <div class="user-avatar">
+            <i class="fas fa-user-circle"></i>
+        </div>
+        <span class="user-name"><?= htmlspecialchars($_SESSION['fullname'] ?? 'Admin') ?></span>
+    </div>
+</div>
         </nav>
 
         <div class="content-area">
@@ -2246,6 +2261,222 @@ setInterval(refreshRequests,7000);
 </script>
 <?php endif; ?>
 <script src="../assets/js/admin.js" defer></script>
+
+<!-- ADMIN MESSAGE MODAL -->
+<div class="modal fade" id="adminMessageModal" tabindex="-1" aria-labelledby="adminMessageModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="adminMessageModalLabel">
+                    <i class="fas fa-envelope me-2"></i>Admin Messaging
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <div class="modal-body">
+                <div class="row g-3">
+                    <!-- SEND MESSAGE -->
+                    <div class="col-md-5">
+                        <div class="border rounded p-3 h-100">
+                            <h6 class="mb-3">Send Message</h6>
+
+                            <form id="adminMessageForm" method="post" action="javascript:void(0);">
+                                <input type="hidden" name="receiver_role" value="TREASURY">
+
+                                <div class="mb-3">
+                                    <label class="form-label">To</label>
+                                    <input type="text" class="form-control" value="Treasury" readonly>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">Message</label>
+                                    <textarea
+                                        name="message"
+                                        id="adminMessageText"
+                                        class="form-control"
+                                        rows="6"
+                                        placeholder="Type your message here..."
+                                        required></textarea>
+                                </div>
+
+                                <button type="submit" class="btn btn-primary w-100">
+                                    <i class="fas fa-paper-plane me-2"></i>Send
+                                </button>
+                            </form>
+
+                            <div id="adminMessageStatus" class="small mt-2"></div>
+                        </div>
+                    </div>
+
+                    <!-- INBOX -->
+                    <div class="col-md-7">
+                        <div class="border rounded p-3 h-100 d-flex flex-column">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="mb-0">Inbox / Conversation</h6>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="refreshAdminMessagesBtn">
+                                    <i class="fas fa-sync-alt me-1"></i>Refresh
+                                </button>
+                            </div>
+
+                            <div id="adminMessageInbox" style="max-height: 420px; overflow-y: auto;">
+                                <div class="text-muted">Loading messages...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script src="../assets/js/bootstrap.bundle.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const form = document.getElementById('adminMessageForm');
+    const inbox = document.getElementById('adminMessageInbox');
+    const statusBox = document.getElementById('adminMessageStatus');
+    const unreadBadge = document.getElementById('adminUnreadBadge');
+    const refreshBtn = document.getElementById('refreshAdminMessagesBtn');
+    const messageText = document.getElementById('adminMessageText');
+    const adminModal = document.getElementById('adminMessageModal');
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.innerText = text;
+        return div.innerHTML;
+    }
+
+    function fetchAdminMessages(markRead = false) {
+        fetch('message_fetch.php' + (markRead ? '?mark_read=1' : ''), {
+            method: 'GET'
+        })
+        .then(res => res.text())
+        .then(text => {
+            try {
+                return JSON.parse(text);
+            } catch (e) {
+                console.error('Invalid JSON from message_fetch.php:', text);
+                throw e;
+            }
+        })
+        .then(data => {
+            if (!data.success) {
+                inbox.innerHTML = '<div class="text-danger">Failed to load messages.</div>';
+                return;
+            }
+
+            if (data.unread_count > 0) {
+                unreadBadge.style.display = 'inline-block';
+                unreadBadge.textContent = data.unread_count;
+            } else {
+                unreadBadge.style.display = 'none';
+                unreadBadge.textContent = '0';
+            }
+
+            if (!data.messages || data.messages.length === 0) {
+                inbox.innerHTML = '<div class="text-muted">No messages yet.</div>';
+                return;
+            }
+
+            let html = '';
+            data.messages.forEach(msg => {
+                const mine = msg.sender_role === 'ADMIN';
+
+                html += `
+                    <div class="mb-2 d-flex ${mine ? 'justify-content-end' : 'justify-content-start'}">
+                        <div class="p-2 rounded ${mine ? 'bg-primary text-white' : 'bg-light border'}" style="max-width: 80%;">
+                            <div class="small fw-bold mb-1">${mine ? 'You' : 'Treasury'}</div>
+                            <div>${escapeHtml(msg.message)}</div>
+                            <div class="small mt-1 ${mine ? 'text-white-50' : 'text-muted'}">
+                                ${msg.created_at}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            inbox.innerHTML = html;
+            inbox.scrollTop = inbox.scrollHeight;
+        })
+        .catch(err => {
+            console.error(err);
+            inbox.innerHTML = '<div class="text-danger">Error loading messages.</div>';
+        });
+    }
+
+    if (form) {
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const formData = new FormData(form);
+            statusBox.innerHTML = '<span class="text-muted">Sending...</span>';
+
+            fetch('message_send.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.text())
+            .then(text => {
+                try {
+                    return JSON.parse(text);
+                } catch (e) {
+                    console.error('Invalid JSON from message_send.php:', text);
+                    throw e;
+                }
+            })
+            .then(data => {
+                if (data.success) {
+                    statusBox.innerHTML = '<span class="text-success">Message sent.</span>';
+                    form.reset();
+                    fetchAdminMessages(false);
+                } else {
+                    statusBox.innerHTML = '<span class="text-danger">' + (data.message || 'Failed to send.') + '</span>';
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                statusBox.innerHTML = '<span class="text-danger">Error sending message. Check console.</span>';
+            });
+
+            return false;
+        });
+    }
+
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', function () {
+            fetchAdminMessages(false);
+        });
+    }
+
+    if (adminModal) {
+        adminModal.addEventListener('shown.bs.modal', function () {
+            fetchAdminMessages(true);
+
+            setTimeout(() => {
+                const activeEl = document.activeElement;
+                if (activeEl && activeEl.classList && activeEl.classList.contains('btn-close')) {
+                    activeEl.blur();
+                }
+            }, 50);
+        });
+
+        adminModal.addEventListener('hidden.bs.modal', function () {
+            const activeEl = document.activeElement;
+            if (activeEl) {
+                activeEl.blur();
+            }
+        });
+    }
+
+    fetchAdminMessages(false);
+
+    setInterval(() => {
+        fetchAdminMessages(false);
+    }, 3000);
+});
+</script>
 
 </body>
 </html>

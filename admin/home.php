@@ -220,14 +220,6 @@ if($tab == 'dashboard') {
                     </div>
                 </div>
 
-                <div class="modern-card">
-                    <div class="card-header"><i class="fas fa-chart-line me-2"></i> Welcome Back!</div>
-                    <div class="card-body">
-                        <h5 class="mb-1">Hello, <?= htmlspecialchars($_SESSION['fullname'] ?? 'Admin') ?> 👋</h5>
-                        <p class="text-muted mb-0">You have <?= (int)$pending_count ?> pending requests.</p>
-                    </div>
-                </div>
-
                 <!-- ✅ CHARTS -->
                 <div class="row g-4 mt-2">
                     <div class="col-lg-5">

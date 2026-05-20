@@ -202,41 +202,64 @@ if (isset($_POST['generate'])) {
             switch ($cert_type) {
 
                 case 'tax_dec': {
-                    $template_path = '../templates/tax_declaration_template.docx';
-                    if (!file_exists($template_path)) {
-                        $errors[] = "Template not found: $template_path";
-                        break;
-                    }
 
-                    $arp_final = $data['ARP_No.'] ?? '';
-                    $cancels_final = '';
+                $template_path = '../templates/tax_declaration_template.docx';
 
-                    if (isset($data['cancellation']) && trim($data['cancellation']) !== '') {
-                        $cancels_final = $arp_final;
-                        $arp_final = $data['cancellation'];
-                    }
-
-                    $template = new TemplateProcessor($template_path);
-
-                    $template->setValue('arp_no', $arp_final);
-                    $template->setValue('cancels_td_no', $cancels_final);
-
-                    $template->setValue('pin_no', $data['PIN_No.'] ?? '');
-                    $template->setValue('declared_owner', $data['declared_owner'] ?? '');
-                    $template->setValue('owner_address', $data['owner_address'] ?? '');
-                    $template->setValue('property_location', $data['property_location'] ?? '');
-                    $template->setValue('title', $data['title'] ?? '');
-                    $template->setValue('lot', $data['lot'] ?? '');
-                    $template->setValue('classification', $data['classification'] ?? '');
-                    $template->setValue('actual_use', $data['actual_use'] ?? '');
-                    $template->setValue('area', $data['area'] ?? '');
-                    $template->setValue('mv', $data['mv'] ?? '');
-                    $template->setValue('av', $data['av'] ?? '');
-
-                    $filename = "Tax_Declaration_" . ($data['ARP_No.'] ?? 'record') . ".docx";
-                    downloadDocxTemplate($template, $filename);
+                if (!file_exists($template_path)) {
+                    $errors[] = "Template not found: $template_path";
+                    break;
                 }
 
+                $arp_final = $data['ARP_No.'] ?? '';
+                $cancels_final = '';
+
+                if (isset($data['cancellation']) && trim($data['cancellation']) !== '') {
+                    $cancels_final = $arp_final;
+                    $arp_final = $data['cancellation'];
+                }
+
+                $template = new TemplateProcessor($template_path);
+
+                $template->setValue('arp_no', $arp_final);
+                $template->setValue('cancels_td_no', $cancels_final);
+
+                $template->setValue('pin_no', $data['PIN_No.'] ?? '');
+                $template->setValue('declared_owner', $data['declared_owner'] ?? '');
+                $template->setValue('owner_address', $data['owner_address'] ?? '');
+                $template->setValue('property_location', $data['property_location'] ?? '');
+                $template->setValue('title', $data['title'] ?? '');
+                $template->setValue('lot', $data['lot'] ?? '');
+                $template->setValue('classification', $data['classification'] ?? '');
+                $template->setValue('actual_use', $data['actual_use'] ?? '');
+                $template->setValue('area', $data['area'] ?? '');
+                $template->setValue('mv', $data['mv'] ?? '');
+                $template->setValue('av', $data['av'] ?? '');
+                $template->setValue('taxability', $data['taxability'] ?? '');
+                $template->setValue('effectivity', $data['effectivity'] ?? '');
+                $template->setValue('cancellation', $data['cancellation'] ?? '');
+
+                $template->setValue('north', $data['north'] ?? '');
+                $template->setValue('east', $data['east'] ?? '');
+                $template->setValue('south', $data['south'] ?? '');
+                $template->setValue('west', $data['west'] ?? '');
+                $template->setValue('ref_td', $data['ref_td'] ?? '');
+                $template->setValue('ref_pin', $data['ref_pin'] ?? '');
+                $template->setValue('beneficial_user', $data['beneficial_user'] ?? '');
+                $template->setValue('ass_level', $data['ass_level'] ?? '');
+                $template->setValue('rec_app', $data['rec_app'] ?? '');
+                $template->setValue('app_by', $data['app_by'] ?? '');
+                $template->setValue('prev_td', $data['prev_td'] ?? '');
+                $template->setValue('prev_ass', $data['prev_ass'] ?? '');
+                $template->setValue('prev_owner', $data['prev_owner'] ?? '');
+                $template->setValue('memo', $data['memo'] ?? '');
+
+                $template->setValue('day', date('d'));
+                $template->setValue('month', date('F'));
+                $template->setValue('year', date('Y'));
+
+                $filename = "Tax_Declaration_" . ($data['ARP_No.'] ?? 'record') . ".docx";
+                downloadDocxTemplate($template, $filename);
+            }
                 case 'no_improvement': {
                     $template_path = '../templates/no_improvement_template.docx';
                     if (!file_exists($template_path)) {
